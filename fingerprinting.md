@@ -27,28 +27,34 @@ This could be a problem when you are doing a coinjoin, for example. If you use t
 ## A (somewhat) Comprehensive List of Wallet Fingerprints
 
 - Change position in vout
+    - the change could be identified by using some of [these](https://en.bitcoin.it/wiki/Privacy#Change_address_detection) heuristics.
 - Change type
 - The presence of dust
     - in the vin
     - in the vout
 - Available Coins / Coin Selection [will expand]
-    - this includes what types of coins we consider "safe" to spend
+    - spending negative EV inputs
+    - this also includes what types of coins we consider "safe" to spend
 - input types
+    - support for certain oppcodes
 - output types (other than change)
+    - eg. does the change type match the rest of the outputs, or the input type
 - input positions
     - whether or not [BIP 69](https://github.com/bitcoin/bips/blob/master/bip-0069.mediawiki) is followed
 - output positions
     - whether or not [BIP 69](https://github.com/bitcoin/bips/blob/master/bip-0069.mediawiki) is followed
 - nSequence [will expand]
-    - rbf
+    - opt-in rbf
+    - full-rbf (would need mempool data to detect this)
 - nLocktime [will expand]
     - anti-fee-sniping
 - feerates [will expand]
-    - min/max allowed fee
+    - min/max allowed fees
     - following feerate reccomendations
 - max unconfirmed tx chain lengths (would need mempool data to detect this, unless ancestors were mined in the same block)
 - low-r-grinding
-- compressed/uncompressed ECDSA public keys
-- tx version [will expand]
+- compressed/uncompressed ECDSA public keys (in non-segwit outputs)
+- tx version
+    - is the tx version set to 2 as a default, or only when needed?
 
 ## Wallet Fingerprints by Wallet

@@ -26,6 +26,8 @@ This could be a problem when you are doing a coinjoin, for example. If you use t
 
 ## A (somewhat) Comprehensive List of Wallet Fingerprints
 
+The following is a list of potential wallet fingerprints. It is important to note that this list does not take into account the feasability of actually detecting this fingerprint with a non-trivial accuracy rate.
+
 - Change position in vout
     - the change could be identified by using some of [these](https://en.bitcoin.it/wiki/Privacy#Change_address_detection) heuristics.
 - Change type
@@ -39,22 +41,29 @@ This could be a problem when you are doing a coinjoin, for example. If you use t
     - support for certain oppcodes
 - output types (other than change)
     - eg. does the change type match the rest of the outputs, or the input type
-- input positions
-    - whether or not [BIP 69](https://github.com/bitcoin/bips/blob/master/bip-0069.mediawiki) is followed
-- output positions
+- input and output positions
     - whether or not [BIP 69](https://github.com/bitcoin/bips/blob/master/bip-0069.mediawiki) is followed
 - nSequence [will expand]
     - opt-in rbf
     - full-rbf (would need mempool data to detect this)
 - nLocktime [will expand]
     - anti-fee-sniping
-- feerates [will expand]
+- fees/feerates [will expand]
     - min/max allowed fees
-    - following feerate reccomendations
+    - following feerate reccomendations (see [this](https://b10c.me/observations/03-blockchaincom-recommendations/))
 - max unconfirmed tx chain lengths (would need mempool data to detect this, unless ancestors were mined in the same block)
 - low-r-grinding
 - compressed/uncompressed ECDSA public keys (in non-segwit outputs)
 - tx version
     - is the tx version set to 2 as a default, or only when needed?
+- the presence of external inputs/allows collaborative transactions
 
-## Wallet Fingerprints by Wallet
+## Utilizing Tx Clustering
+
+Clustering: "the task of finding addresses that belongs to the same wallet as a given address" ([Jonas Nick's masters thesis](https://jonasnick.github.io/papers/thesis.pdf))
+
+If no fingerprints can be found for a given transaction, clustering algorithms could be used to find other adresses belonging to the same wallet. This is helpful because then those transactions can be searched for fingerprints. Typically a de-anonymization techniques can be even more effective when multiple are used in tandem. 
+
+## Assumptions Being Made
+- default settings
+- certain software versions

@@ -28,35 +28,63 @@ This could be a problem when you are doing a coinjoin, for example. If you use t
 
 The following is a list of potential wallet fingerprints. It is important to note that this list does not take into account the feasability of actually detecting this fingerprint with a non-trivial accuracy rate.
 
-- Change position in vout
-    - the change could be identified by using some of [these](https://en.bitcoin.it/wiki/Privacy#Change_address_detection) heuristics.
-- Change type
+### Independent Fingerprints
+
+This group of fingerprints contains fingerprints that can be __directly__ seen in the tx/group of txs. The fingerprints are not dependent on being correct about other information.
+
 - The presence of dust
     - in the vin
     - in the vout
-- Available Coins / Coin Selection [will expand]
+- Available Coins / Coin Selection
     - spending negative EV inputs
-    - this also includes what types of coins we consider "safe" to spend
-- input types
-    - support for certain oppcodes
-- output types (other than change)
-    - eg. does the change type match the rest of the outputs, or the input type
-- input and output positions
-    - whether or not [BIP 69](https://github.com/bitcoin/bips/blob/master/bip-0069.mediawiki) is followed
+- Output type support
 - nSequence [will expand]
     - opt-in rbf
-    - full-rbf (would need mempool data to detect this)
-- nLocktime [will expand]
-    - anti-fee-sniping
-- fees/feerates [will expand]
-    - min/max allowed fees
-    - following feerate reccomendations (see [this](https://b10c.me/observations/03-blockchaincom-recommendations/))
-- max unconfirmed tx chain lengths (would need mempool data to detect this, unless ancestors were mined in the same block)
-- low-r-grinding
 - compressed/uncompressed ECDSA public keys (in non-segwit outputs)
 - tx version
     - is the tx version set to 2 as a default, or only when needed?
+- anti-fee-sniping
+- input types
+    - support for certain oppcodes and certain spending types
+- output types
+    - support for certain address/script types
+
+### Chance Fingerprints
+
+This group of fingerprints contains fingerprints that can still be directly seen in the tx/group of txs, but there is a probability that these fingerprints can be seen in transactions created by wallets that don't leave this fingerprint.
+
+- input and output positions
+    - whether or not [BIP 69](https://github.com/bitcoin/bips/blob/master/bip-0069.mediawiki) is followed (eg. for a tx with 2 inputs and 1 output, there is a 50% chance that they are placed in the vin in such a way that they technically follow BIP-69, even if the wallet has not implemented this BIP)
+- low-r-grinding (50% chance of a naturally occuring low-r)
+- fees/feerates [will expand]
+    - min/max allowed fees
+    - following feerate reccomendations, using a specific feerate reccomendation (see [this](https://b10c.me/observations/03-blockchaincom-recommendations/))
+    - fees/feerates manually entered:
+        - round dollar amount
+        - round satoshi amount
+
+### Dependent Fingerprints
+- Change position in vout
+    - the change could be identified by using some of [these](https://en.bitcoin.it/wiki/Privacy#Change_address_detection) heuristics.
+    - this would depend on being able to correctly identify the change output
+- Change type
+    - this would depend on being able to correctly identify the change output
+    - eg. does the change type match the rest of the outputs, or the input type
 - the presence of external inputs/allows collaborative transactions
+    - this would depend on being able to correctly identify external inputs
+
+### Miscellaneous
+- nLocktime [will expand]
+- nSequence [will expand]
+    - full-rbf (would need mempool data to detect this)
+- Available Coins / Coin Selection
+    - this also includes what types of coins we consider "safe" to spend
+    - does the wallet spend unconfirmed txs when confirmed txs are available but more expensive
+    - does the wallet spend outputs from a tx that is replacing another tx?
+    - does the wallet only spend utxos with a certain number of confirmations?
+    - coin selection algorithm used?
+        - eg. changeless txs w/ BnB
+        - perhaps various coin selection algortihms could be identified using unsupervised ML?
 
 ## Utilizing Tx Clustering
 

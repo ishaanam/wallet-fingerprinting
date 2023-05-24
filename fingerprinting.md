@@ -37,7 +37,6 @@ This group of fingerprints contains fingerprints that can be __directly__ seen i
     - in the vout
 - Available Coins / Coin Selection
     - spending negative EV inputs
-- Output type support
 - nSequence [will expand]
     - opt-in rbf
 - compressed/uncompressed ECDSA public keys (in non-segwit outputs)
@@ -45,7 +44,7 @@ This group of fingerprints contains fingerprints that can be __directly__ seen i
     - is the tx version set to 2 as a default, or only when needed?
 - anti-fee-sniping
 - input types
-    - support for certain oppcodes and certain spending types
+    - support for certain opcodes and certain spending types
 - output types
     - support for certain address/script types
 
@@ -64,6 +63,9 @@ This group of fingerprints contains fingerprints that can still be directly seen
         - round satoshi amount
 
 ### Dependent Fingerprints
+
+This group describes fingerprints that are dependent on another piece of information about the transaction that can't be known for certain.
+
 - Change position in vout
     - the change could be identified by using some of [these](https://en.bitcoin.it/wiki/Privacy#Change_address_detection) heuristics.
     - this would depend on being able to correctly identify the change output
@@ -95,3 +97,5 @@ If no fingerprints can be found for a given transaction, clustering algorithms c
 ## Assumptions Being Made
 - default settings
 - certain software versions
+
+## Potential Experiments

@@ -47,14 +47,17 @@ This group of fingerprints contains fingerprints that can be __directly__ seen i
     - support for certain opcodes and certain spending types
 - output types
     - support for certain address/script types
+- forced address reuse (dusting)
+- number of outputs:
+    - some wallet only support sending to one recipient, meaning the output count would be 2 (1 recipient + change)
 
-### Chance Fingerprints
+### Probabilistic Fingerprints
 
 This group of fingerprints contains fingerprints that can still be directly seen in the tx/group of txs, but there is a probability that these fingerprints can be seen in transactions created by wallets that don't leave this fingerprint.
 
 - input and output positions
     - whether or not [BIP 69](https://github.com/bitcoin/bips/blob/master/bip-0069.mediawiki) is followed (eg. for a tx with 2 inputs and 1 output, there is a 50% chance that they are placed in the vin in such a way that they technically follow BIP-69, even if the wallet has not implemented this BIP)
-- low-r-grinding (50% chance of a naturally occuring low-r)
+- low-r-grinding (50% chance of a naturally occuring low-r per signature)
 - fees/feerates [will expand]
     - min/max allowed fees
     - following feerate reccomendations, using a specific feerate reccomendation (see [this](https://b10c.me/observations/03-blockchaincom-recommendations/))
@@ -75,15 +78,22 @@ This group describes fingerprints that are dependent on another piece of informa
 - the presence of external inputs/allows collaborative transactions
     - this would depend on being able to correctly identify external inputs
 
+### Temporal Fingerprints
+- Does the wallet allow unconfirmed inputs being spent?
+    - If so, are these unconfirmed inputs spending change or other kinds of outputs as well?
+- Is this transaction replacing another transaction (RBF)
+- Does the wallet only spend utxos with a certain number of confirmations?
+
 ### Miscellaneous
+- Manual ordering of inputs:
+    - if a transacion handles/interacts with an inscription, it likely was made by a wallet that allows the manual ordering of inputs
+- utxo age
 - nLocktime [will expand]
 - nSequence [will expand]
     - full-rbf (would need mempool data to detect this)
 - Available Coins / Coin Selection
     - this also includes what types of coins we consider "safe" to spend
     - does the wallet spend unconfirmed txs when confirmed txs are available but more expensive
-    - does the wallet spend outputs from a tx that is replacing another tx?
-    - does the wallet only spend utxos with a certain number of confirmations?
     - coin selection algorithm used?
         - eg. changeless txs w/ BnB
         - perhaps various coin selection algortihms could be identified using unsupervised ML?

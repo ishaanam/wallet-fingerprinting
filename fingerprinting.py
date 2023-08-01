@@ -22,6 +22,14 @@ def get_prev_txout(tx_in):
     prev_txout = decoderawtransaction(getrawtransaction(tx_in["txid"]))["vout"][tx_in["vout"]]
     return prev_txout
 
+def get_confirmation_height(txid):
+    mempool_space = f"https://mempool.space/api/tx/{txid}/status"
+    response = requests.request("GET", mempool_space)
+    ret = json.loads(response.text)
+    if not ret["confirmed"]:
+        return -1
+    return ret["block_height"]
+
 def get_spending_types(tx):
     types = []
     for tx_in in tx["vin"]:
@@ -68,6 +76,21 @@ def get_input_order(tx):
 
     if sorted(prevouts) == prevouts:
         sorting_types.append(InputSortingType.BIP69)
+
+    prevout_conf_heights = {prevout: None for prevout in prevouts}
+
+    for prevout in prevouts:
+        txid = prevout[0:prevout.find(":")]
+        conf_height = get_confirmation_height(txid)
+        if conf_height != -1:
+            prevout_conf_heights[prevout] = conf_height
+        else:
+            prevout_conf_heights.remove(prevout)
+
+    ordered_conf_heights = list(prevout_conf_heights.values())
+
+    if ordered_conf_heights == sorted(ordered_conf_heights):
+        sorting_types.append(InputSortingType.HISTORICAL)
 
     if len(sorting_types) == 0:
         sorting_types.append(InputSortingType.UNKNOWN)

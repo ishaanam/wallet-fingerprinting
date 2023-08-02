@@ -15,8 +15,7 @@ class OutputStructureType(Enum):
     DOUBLE = 1
     MULTI = 2
     CHANGE_LAST = 3
-    CHANGE_FIRST = 4
-    BIP69 = 5
+    BIP69 = 4
 
 def get_prev_txout(tx_in):
     prev_txout = decoderawtransaction(getrawtransaction(tx_in["txid"]))["vout"][tx_in["vout"]]
@@ -42,9 +41,6 @@ def get_sending_types(tx):
     for tx_out in tx["vout"]:
         types.append(tx_out["scriptPubKey"]["type"])
     return types
-
-def has_more_than_2_outputs(tx):
-    return len(tx["vout"]) > 2
 
 def compressed_public_keys_only(tx):
     input_types = get_spending_types(tx)
@@ -96,7 +92,7 @@ def get_input_order(tx):
         sorting_types.append(InputSortingType.UNKNOWN)
     return sorting_types
 
-# Returns false if there is an r value of greater than 32 bytes
+# Returns false if there is an r value of more than 32 bytes
 def low_r_only(tx):
     input_types = get_spending_types(tx)
     for i, input_type in enumerate(input_types):
@@ -110,21 +106,116 @@ def low_r_only(tx):
                 return False
     return True
 
+def get_change_index(tx):
+    vout = tx["vout"]
+
+    # if single, return -1 as index
+    if len(vout) == 1:
+        return -1
+
+    input_types = get_spending_types(tx)
+    output_types = get_sending_types(tx)
+
+    # if all inputs are of the same type, and only one output of the outputs is of that type, 
+    if (len(set(input_types)) == 1):
+        if output_types.count(input_types[0]) == 1:
+            return output_types.index(input_types[0])
+
+    # same as one of the input addresses
+    prev_txouts  = [get_prev_txout(tx_in) for tx_in in tx["vin"]]
+    input_script_pub_keys = [tx_out["scriptPubKey"]["hex"] for tx_out in prev_txouts]
+    output_script_pub_keys = [tx_out["scriptPubKey"]["hex"] for tx_out in vout]
+
+    shared_address = list(set(output_script_pub_keys).intersection(set(input_script_pub_keys)))
+
+    if len(shared_address) == 1 and output_script_pub_keys.count(shared_address[0]) == 1:
+        return output_script_pub_keys.index(shared_address[0])
+
+    # TODO: Unnecessary Input Heuristic: https://en.bitcoin.it/wiki/Privacy#Change_address_detection
+    # input_amounts = [tx_out["value"] for tx_out in prev_txouts]
+    # output_amounts = [tx_out["value"] for tx_out in vout]
+
+    # TODO: Add check for round numbers (in satoshis and dollars)
+
+    # else inconclusive, return -2
+    return -2
+
+def get_output_structure(tx):
+    vout = tx["vout"]
+    if len(vout) == 1:
+        return [OutputStructureType.SINGLE]
+
+    output_structure = []
+
+    if len(vout) == 2:
+        output_structure.append(OutputStructureType.DOUBLE)
+    else:
+        output_structure.append(OutputStructureType.MULTI)
+
+    # The following outputs structure types are mutually exclusive
+
+    # Change Index
+
+    change_index = get_change_index(tx)
+
+    if change_index == len(tx["vout"]) - 1:
+        output_structure.append(OutputStructureType.CHANGE_LAST)
+
+    # BIP 69
+    amounts = []
+    outputs = []
+
+    for tx_out in vout:
+        amounts.append(tx_out["value"])
+        outputs.append(tx_out["scriptPubKey"]["hex"])
+
+    # There are duplicate amounts, so we also have to compare
+    # by scriptPubKey
+    if set(amounts) != amounts:
+        if sorted(outputs) == outputs and sorted(amounts) == amounts:
+            output_structure.append(OutputStructureType.BIP69)
+            return output_structure
+    else:
+        if sorted(amounts) == amounts:
+            output_structure.append(OutputStructureType.BIP69)
+            return output_structure
+
+    return output_structure
+
+def has_multi_type_vin():
+    input_types = get_spending_types(tx)
+    if len(set(input_types)) == 1:
+        return True
+    return False
+
+# -1 if definitely not
+# 0 if possible
+# 1 if very likely
+# Note: also add if there isn't OP_CLTV in one of the inputs
+def is_anti_fee_sniping(tx):
+    locktime = tx["locktime"]
+    if locktime == 0:
+        return -1
+    tx_height = get_confirmation_height(tx["txid"])
+    if tx_height - locktime >= 100:
+        return 0
+    return 1
+
+def change_type_matched_inputs(tx):
+    change_index = get_change_index(tx)
+    if change_index < 0:
+        return False
+    change_type = tx["vout"][change_index]["type"]
+
+    input_types = get_spending_types(tx)
+
+    if change_type in input_types:
+        return True
+    return False
+
 def sequence_value(tx):
     pass
 
-def get_output_order(tx):
-    pass
-
-def get_change_index(tx):
-    pass
-
-def change_type_matched_inputs(tx):
-    pass
-
+# need historical mempool data for this to be completely accurate
 def spends_unconfirmed(tx):
     pass
-
-def is_anti_fee_sniping(tx):
-    pass
-

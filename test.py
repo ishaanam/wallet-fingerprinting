@@ -17,6 +17,10 @@ class TestFingerprinting(unittest.TestCase):
 
         assert get_sending_types(tx) == ["witness_v0_keyhash", "witness_v0_keyhash", "witness_v0_keyhash", "witness_v0_keyhash"]
 
+    def test_has_multi_type_vin(self):
+        assert not has_multi_type_vin(get_tx("5d857401648a667303cde43295bce1326e6329353eac3dddf15b151e701405e7"))
+        assert has_multi_type_vin(get_tx("E21c826797cdb41da79dc0f65026911ea5c5b59c8cf5d115f0f62b8cb9fc1b21"))
+
     def test_compressed_public_keys(self):
         tx = get_tx("E21c826797cdb41da79dc0f65026911ea5c5b59c8cf5d115f0f62b8cb9fc1b21")
 
@@ -62,7 +66,15 @@ class TestFingerprinting(unittest.TestCase):
         assert is_anti_fee_sniping(get_tx("5d857401648a667303cde43295bce1326e6329353eac3dddf15b151e701405e7")) == 1
 
     def test_change_type_matched_inputs(self):
-        assert change_type_matched_inputs(get_tx("01d5bfed27b98cd049d5e3547e93a447df6cbfa1a1d64c33aff427bef8b3cec4"))
+        assert change_type_matched_inputs(get_tx("01d5bfed27b98cd049d5e3547e93a447df6cbfa1a1d64c33aff427bef8b3cec4")) == 1
+
+    def test_signals_rbf(self):
+        assert not signals_rbf(get_tx("Bd4a846c05c37029caf7f6cef453112eef362ca511bd6a52f9082d85b7b2f207"))
+        assert signals_rbf(get_tx("Af39337032ec9d37aa91e41b152c1522cddc2070c08b06a1aaf5fe6ab6285a04"))
+
+    def test_address_reuse(self):
+        assert address_reuse(get_tx("43f901163b8c27567d365f56bb804bd74904bd78d58017905f3c36cac971d9b6"))
+        assert not address_reuse(get_tx("1849118e584418ef9649e88e3b44a6ab6a6b06440fe7b1c51a1e76f16e72cefa"))
 
 if __name__ == '__main__':
     unittest.main()

@@ -182,11 +182,11 @@ def get_output_structure(tx):
 
     return output_structure
 
-def has_multi_type_vin():
+def has_multi_type_vin(tx):
     input_types = get_spending_types(tx)
     if len(set(input_types)) == 1:
-        return True
-    return False
+        return False
+    return True
 
 # -1 if definitely not
 # 0 if possible
@@ -224,8 +224,22 @@ def change_type_matched_inputs(tx):
             return 1
         return 0 # neither
 
-def sequence_value(tx):
-    pass
+def address_reuse(tx):
+    prev_txouts  = [get_prev_txout(tx_in) for tx_in in tx["vin"]]
+
+    input_script_pub_keys = [tx_out["scriptPubKey"]["hex"] for tx_out in prev_txouts]
+    output_script_pub_keys = [tx_out["scriptPubKey"]["hex"] for tx_out in tx["vout"]]
+
+    shared_address = list(set(output_script_pub_keys).intersection(set(input_script_pub_keys)))
+    if shared_address:
+        return True
+    return False
+
+def signals_rbf(tx):
+    for tx_in in tx["vin"]:
+        if tx_in["sequence"] < 0xffffffff:
+            return True
+    return False
 
 # need historical mempool data for this to be completely accurate
 def spends_unconfirmed(tx):

@@ -201,17 +201,28 @@ def is_anti_fee_sniping(tx):
         return 0
     return 1
 
+# 2 = no change / change inconclusive
+# 1 = it matched inputs
+# 0 = it matched neither/both inputs nor outputs
+# -1 = it matched outputs
 def change_type_matched_inputs(tx):
     change_index = get_change_index(tx)
     if change_index < 0:
-        return False
-    change_type = tx["vout"][change_index]["type"]
+        return 2
+    change_type = tx["vout"][change_index]["scriptPubKey"]["type"]
 
     input_types = get_spending_types(tx)
+    output_types = get_sending_types(tx)
+    output_types.remove(change_type)
 
-    if change_type in input_types:
-        return True
-    return False
+    if change_type in output_types:
+        if change_type in input_types:
+            return 0 # both
+        return -1
+    else:
+        if change_type in input_types:
+            return 1
+        return 0 # neither
 
 def sequence_value(tx):
     pass

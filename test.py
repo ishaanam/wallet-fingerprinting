@@ -61,5 +61,8 @@ class TestFingerprinting(unittest.TestCase):
         assert is_anti_fee_sniping(get_tx("d63aadc93aca05be5561d76888edf61e7f772b96fb1e43231111fe5fbcc4a601")) == -1
         assert is_anti_fee_sniping(get_tx("5d857401648a667303cde43295bce1326e6329353eac3dddf15b151e701405e7")) == 1
 
+    def test_change_type_matched_inputs(self):
+        assert change_type_matched_inputs(get_tx("01d5bfed27b98cd049d5e3547e93a447df6cbfa1a1d64c33aff427bef8b3cec4"))
+
 if __name__ == '__main__':
     unittest.main()

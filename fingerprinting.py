@@ -17,6 +17,17 @@ class OutputStructureType(Enum):
     CHANGE_LAST = 3
     BIP69 = 4
 
+class Wallets(Enum):
+    BITCOIN_CORE = 0
+    ELECTRUM = 1
+    BLUE_WALLET = 2
+    COINBASE = 3
+    EXODUS = 4
+    TRUST = 5
+    TREZOR = 6
+    LEDGER = 7
+    UNKNOWN = 8
+
 def get_prev_txout(tx_in):
     prev_txout = decoderawtransaction(getrawtransaction(tx_in["txid"]))["vout"][tx_in["vout"]]
     return prev_txout
@@ -244,3 +255,54 @@ def signals_rbf(tx):
 # need historical mempool data for this to be completely accurate
 def spends_unconfirmed(tx):
     pass
+
+def detect_wallet(tx):
+    if tx["version"] == 1:
+        if address_reuse(tx):
+            return Wallets.TRUST
+        output_structure = get_output_structure(tx) 
+        if OutputStructureType.MULTI in output_structure:
+            return Wallets.TREZOR
+        if output_structure != [OutputStructureType.SINGLE]:
+            if OutputStructureType.BIP69 not in output_structure:
+                return Wallets.LEDGER
+        input_order = get_input_order(tx)
+        if input_order != [InputSortingType.SINGLE]:
+            if InputSortingType.BIP69 not in input_order:
+                return Wallets.LEDGER
+            if InputSortingType.HISTORICAL not in input_order:
+                return Wallets.TREZOR
+        change_index = get_change_index(tx)
+        if change_index >= 0:
+            if change_index != len(tx["vout"]) - 1: # if the last output was the change
+                return Wallets.TREZOR
+        spending_types = get_spending_types(tx)
+        if "witness_v1_taproot" in spending_types:
+            return Wallet.TREZOR
+    elif tx["version"] == 2:
+        if is_anti_fee_sniping(tx) != -1:
+            output_structure = get_output_structure(tx) 
+            if (output_structure != [OutputStructureType.SINGLE]) and (not OutputStructureType.BIP69 in output_structure):
+                return Wallets.BITCOIN_CORE
+            input_ordering = get_input_order(tx)
+            if (input_ordering != [InputSortingType.SINGLE]) and (not InputSortingType.BIP69 in input_ordering):
+                return Wallets.BITCOIN_CORE
+            if has_multi_type_vin(tx):
+                return Wallets.BITCOIN_CORE
+            spending_types = get_spending_types(tx)
+            if "witness_v1_taproot" in spending_types:
+                return Wallets.BITCOIN_CORE
+            matching_change_type = change_type_matched_inputs(tx)
+            if matching_change_type == -1:
+                return Wallets.BITCOIN_CORE
+            return Wallets.ELECTRUM
+        else:
+            if not signals_rbf(tx):
+                return Wallets.COINBASE
+            if len(tx["vout"]) > 2:
+                return Wallets.BLUE_WALLET
+            if address_reuse(tx):
+                return Wallets.EXODUS
+    else:
+        return Wallets.UNKNOWN
+    return Wallets.UNKNOWN

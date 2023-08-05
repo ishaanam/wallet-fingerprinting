@@ -297,12 +297,23 @@ def detect_wallet(tx):
                 return Wallets.BITCOIN_CORE
             return Wallets.ELECTRUM
         else:
-            if not signals_rbf(tx):
-                return Wallets.COINBASE
-            if len(tx["vout"]) > 2:
+            if signals_rbf(tx):
                 return Wallets.BLUE_WALLET
-            if address_reuse(tx):
-                return Wallets.EXODUS
+
+            vout_len = len(tx["vout"])
+            if vout_len > 2:
+                return Wallets.UNKNOWN # doesn't signal RBF but has more than two outputs
+            elif vout_len == 2:
+                if address_reuse(tx): # this is only address reuse between inputs and outputs (change same as input address)
+                    return Wallets.EXODUS
+                return Wallets.COINBASE
+            elif vout_len == 1:
+                sending_types = get_sending_types(tx)
+                if "witness_v1_taproot" in sending_types:
+                    return Wallets.EXODUS
+                spending_types = get_spending_types(tx)
+                if "pubkeyhash" in spending_types:
+                    return Wallets.COINBASE
     else:
         return Wallets.UNKNOWN
     return Wallets.UNKNOWN

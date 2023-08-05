@@ -144,9 +144,17 @@ def get_change_index(tx):
 
     # TODO: Unnecessary Input Heuristic: https://en.bitcoin.it/wiki/Privacy#Change_address_detection
     # input_amounts = [tx_out["value"] for tx_out in prev_txouts]
-    # output_amounts = [tx_out["value"] for tx_out in vout]
 
-    # TODO: Add check for round numbers (in satoshis and dollars)
+    output_amounts = [int(tx_out["value"] * 100000000) for tx_out in vout] # stored as satoshis
+
+    possible_index = []
+
+    for i, amount in enumerate(output_amounts):
+        if amount % 100 != 0:
+            possible_index.append(i)
+
+    if len(possible_index) == 1:
+        return possible_index[0]
 
     # else inconclusive, return -2
     return -2

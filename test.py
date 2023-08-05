@@ -59,7 +59,7 @@ class TestFingerprinting(unittest.TestCase):
         assert get_output_structure(tx) == [OutputStructureType.SINGLE]
 
         tx = get_tx("e5b278b6504297d0203a814a22239dad2b84742ec82a995c046dfef4e06fc5a4")
-        assert get_output_structure(tx) == [OutputStructureType.MULTI]
+        assert get_output_structure(tx) == [OutputStructureType.MULTI, OutputStructureType.CHANGE_LAST]
 
     def test_anti_fee_sniping(self):
         assert is_anti_fee_sniping(get_tx("d63aadc93aca05be5561d76888edf61e7f772b96fb1e43231111fe5fbcc4a601")) == -1

@@ -16,7 +16,7 @@ def getbestblockhash():
 
     return json.loads(response.text)["result"]
 
-def getblock(blockhash):
+def getblock(block_hash):
     payload = json.dumps({"method": "getblock", "params": [block_hash]})
     headers = {'content-type': "application/json", 'cache-control': "no-cache"}
     response = requests.request("POST", URL, data=payload, headers=headers, auth=(RPCUSER, RPCPASSWORD))

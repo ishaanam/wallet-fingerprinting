@@ -40,10 +40,11 @@ def get_confirmation_height(txid):
         return -1
     return ret["block_height"]
 
-def get_spending_types(tx):
+def get_spending_types(tx, prev_txouts=None):
     types = []
-    for tx_in in tx["vin"]:
-        prev_txout = get_prev_txout(tx_in)
+    if not prev_txouts:
+        prev_txouts  = [get_prev_txout(tx_in) for tx_in in tx["vin"]]
+    for prev_txout in prev_txouts:
         types.append(prev_txout["scriptPubKey"]["type"])
     return types
 
@@ -53,8 +54,8 @@ def get_sending_types(tx):
         types.append(tx_out["scriptPubKey"]["type"])
     return types
 
-def compressed_public_keys_only(tx):
-    input_types = get_spending_types(tx)
+def compressed_public_keys_only(tx, prev_txouts=None):
+    input_types = get_spending_types(tx, prev_txouts)
     for i, input_type in enumerate(input_types):
         if input_type == "witness_v0_keyhash":
             if tx["vin"][i]["txinwitness"][1][1] == '4':
@@ -64,17 +65,19 @@ def compressed_public_keys_only(tx):
                 return False
     return True
 
-def get_input_order(tx):
+def get_input_order(tx, prev_txouts=None):
     if len(tx["vin"]) == 1:
         return [InputSortingType.SINGLE]
     sorting_types = []
     amounts = []
     prevouts = []
 
-    for tx_in in tx["vin"]:
+    if not prev_txouts:
+        prev_txouts  = [get_prev_txout(tx_in) for tx_in in tx["vin"]]
+
+    for i, tx_in in enumerate(tx["vin"]):
         prevouts.append(f"{tx_in['txid']}:{tx_in['vout']}")
-        prev_txout = get_prev_txout(tx_in)
-        amounts.append(prev_txout["value"])
+        amounts.append(prev_txouts[i]["value"])
 
     if sorted(amounts) == amounts:
         sorting_types.append(InputSortingType.ASCENDING)
@@ -104,8 +107,8 @@ def get_input_order(tx):
     return sorting_types
 
 # Returns false if there is an r value of more than 32 bytes
-def low_r_only(tx):
-    input_types = get_spending_types(tx)
+def low_r_only(tx, prev_txouts=None):
+    input_types = get_spending_types(tx, prev_txouts)
     for i, input_type in enumerate(input_types):
         if input_type == "witness_v0_keyhash":
             r_len = tx["vin"][i]["txinwitness"][0][6:8]
@@ -117,14 +120,14 @@ def low_r_only(tx):
                 return False
     return True
 
-def get_change_index(tx):
+def get_change_index(tx, prev_txouts=None):
     vout = tx["vout"]
 
     # if single, return -1 as index
     if len(vout) == 1:
         return -1
 
-    input_types = get_spending_types(tx)
+    input_types = get_spending_types(tx, prev_txouts)
     output_types = get_sending_types(tx)
 
     # if all inputs are of the same type, and only one output of the outputs is of that type, 
@@ -133,7 +136,8 @@ def get_change_index(tx):
             return output_types.index(input_types[0])
 
     # same as one of the input addresses
-    prev_txouts  = [get_prev_txout(tx_in) for tx_in in tx["vin"]]
+    if not prev_txouts:
+        prev_txouts  = [get_prev_txout(tx_in) for tx_in in tx["vin"]]
     input_script_pub_keys = [tx_out["scriptPubKey"]["hex"] for tx_out in prev_txouts]
     output_script_pub_keys = [tx_out["scriptPubKey"]["hex"] for tx_out in vout]
 
@@ -201,8 +205,8 @@ def get_output_structure(tx):
 
     return output_structure
 
-def has_multi_type_vin(tx):
-    input_types = get_spending_types(tx)
+def has_multi_type_vin(tx, prev_txouts=None):
+    input_types = get_spending_types(tx, prev_txouts)
     if len(set(input_types)) == 1:
         return False
     return True
@@ -224,13 +228,13 @@ def is_anti_fee_sniping(tx):
 # 1 = it matched inputs
 # 0 = it matched neither/both inputs nor outputs
 # -1 = it matched outputs
-def change_type_matched_inputs(tx):
+def change_type_matched_inputs(tx, prev_txouts=None):
     change_index = get_change_index(tx)
     if change_index < 0:
         return 2
     change_type = tx["vout"][change_index]["scriptPubKey"]["type"]
 
-    input_types = get_spending_types(tx)
+    input_types = get_spending_types(tx, prev_txouts)
     output_types = get_sending_types(tx)
     output_types.remove(change_type)
 
@@ -243,8 +247,9 @@ def change_type_matched_inputs(tx):
             return 1
         return 0 # neither
 
-def address_reuse(tx):
-    prev_txouts  = [get_prev_txout(tx_in) for tx_in in tx["vin"]]
+def address_reuse(tx, prev_txouts=None):
+    if not prev_txouts:
+        prev_txouts  = [get_prev_txout(tx_in) for tx_in in tx["vin"]]
 
     input_script_pub_keys = [tx_out["scriptPubKey"]["hex"] for tx_out in prev_txouts]
     output_script_pub_keys = [tx_out["scriptPubKey"]["hex"] for tx_out in tx["vout"]]
@@ -265,8 +270,9 @@ def spends_unconfirmed(tx):
     pass
 
 def detect_wallet(tx):
+    prev_txouts  = [get_prev_txout(tx_in) for tx_in in tx["vin"]]
     if tx["version"] == 1:
-        if address_reuse(tx):
+        if address_reuse(tx, prev_txouts):
             return Wallets.TRUST
         output_structure = get_output_structure(tx) 
         if OutputStructureType.MULTI in output_structure:
@@ -274,36 +280,37 @@ def detect_wallet(tx):
         if output_structure != [OutputStructureType.SINGLE]:
             if OutputStructureType.BIP69 not in output_structure:
                 return Wallets.LEDGER
-        input_order = get_input_order(tx)
+        input_order = get_input_order(tx, prev_txouts)
         if input_order != [InputSortingType.SINGLE]:
             if InputSortingType.BIP69 not in input_order:
                 return Wallets.LEDGER
             if InputSortingType.HISTORICAL not in input_order:
                 return Wallets.TREZOR
-        change_index = get_change_index(tx)
+        change_index = get_change_index(tx, prev_txouts)
         if change_index >= 0:
             if change_index != len(tx["vout"]) - 1: # if the last output was the change
                 return Wallets.TREZOR
-        spending_types = get_spending_types(tx)
+        spending_types = get_spending_types(tx, prev_txouts)
         if "witness_v1_taproot" in spending_types:
-            return Wallet.TREZOR
+            return Wallets.TREZOR
     elif tx["version"] == 2:
         if is_anti_fee_sniping(tx) != -1:
-            output_structure = get_output_structure(tx) 
-            if (output_structure != [OutputStructureType.SINGLE]) and (not OutputStructureType.BIP69 in output_structure):
-                return Wallets.BITCOIN_CORE
-            input_ordering = get_input_order(tx)
-            if (input_ordering != [InputSortingType.SINGLE]) and (not InputSortingType.BIP69 in input_ordering):
-                return Wallets.BITCOIN_CORE
-            if has_multi_type_vin(tx):
-                return Wallets.BITCOIN_CORE
-            spending_types = get_spending_types(tx)
-            if "witness_v1_taproot" in spending_types:
-                return Wallets.BITCOIN_CORE
-            matching_change_type = change_type_matched_inputs(tx)
-            if matching_change_type == -1:
-                return Wallets.BITCOIN_CORE
-            return Wallets.ELECTRUM
+            if low_r_only(tx, prev_txouts):
+                output_structure = get_output_structure(tx) 
+                if (output_structure != [OutputStructureType.SINGLE]) and (not OutputStructureType.BIP69 in output_structure):
+                    return Wallets.BITCOIN_CORE
+                input_ordering = get_input_order(tx, prev_txouts)
+                if (input_ordering != [InputSortingType.SINGLE]) and (not InputSortingType.BIP69 in input_ordering):
+                    return Wallets.BITCOIN_CORE
+                if has_multi_type_vin(tx, prev_txouts):
+                    return Wallets.BITCOIN_CORE
+                spending_types = get_spending_types(tx, prev_txouts)
+                if "witness_v1_taproot" in spending_types:
+                    return Wallets.BITCOIN_CORE
+                matching_change_type = change_type_matched_inputs(tx, prev_txouts)
+                if matching_change_type == -1:
+                    return Wallets.BITCOIN_CORE
+                return Wallets.ELECTRUM
         else:
             if signals_rbf(tx):
                 return Wallets.BLUE_WALLET
@@ -312,16 +319,14 @@ def detect_wallet(tx):
             if vout_len > 2:
                 return Wallets.UNKNOWN # doesn't signal RBF but has more than two outputs
             elif vout_len == 2:
-                if address_reuse(tx): # this is only address reuse between inputs and outputs (change same as input address)
+                if address_reuse(tx, prev_txouts): # this is only address reuse between inputs and outputs (change same as input address)
                     return Wallets.EXODUS
                 return Wallets.COINBASE
             elif vout_len == 1:
                 sending_types = get_sending_types(tx)
                 if "witness_v1_taproot" in sending_types:
                     return Wallets.EXODUS
-                spending_types = get_spending_types(tx)
+                spending_types = get_spending_types(tx, prev_txouts)
                 if "pubkeyhash" in spending_types:
                     return Wallets.COINBASE
-    else:
-        return Wallets.UNKNOWN
     return Wallets.UNKNOWN

@@ -330,3 +330,30 @@ def detect_wallet(tx):
                 if "pubkeyhash" in spending_types:
                     return Wallets.COINBASE
     return Wallets.UNKNOWN
+
+def get_tx(txid):
+    return decoderawtransaction(getrawtransaction(txid))
+
+def analyze_block(block_hash=None, num_of_txs=None):
+    if not block_hash:
+        block_hash = getbestblockhash()
+
+    # exclude the coinbase transaction
+    transactions = getblock(block_hash)["tx"][1:num_of_txs]
+
+    wallets = {}
+
+    wallets[Wallets.BITCOIN_CORE] = 0
+    wallets[Wallets.ELECTRUM] = 0
+    wallets[Wallets.BLUE_WALLET] = 0
+    wallets[Wallets.COINBASE] = 0
+    wallets[Wallets.EXODUS] = 0
+    wallets[Wallets.TRUST] = 0
+    wallets[Wallets.TREZOR] = 0
+    wallets[Wallets.LEDGER] = 0
+    wallets[Wallets.UNKNOWN] = 0
+
+    for txid in transactions:
+        wallets[detect_wallet(get_tx(txid))] += 1
+
+    return wallets

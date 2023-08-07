@@ -3,9 +3,6 @@ import unittest
 from bitcoin_core import getrawtransaction, decoderawtransaction
 from fingerprinting import *
 
-def get_tx(txid):
-    return decoderawtransaction(getrawtransaction(txid))
-
 class TestFingerprinting(unittest.TestCase):
     def test_spending_types(self):
         tx = get_tx("60849af6e56c2ad0facd601cc5014398210898a7e6d5b9280b54f6395349663a")

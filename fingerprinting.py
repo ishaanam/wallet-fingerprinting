@@ -1,4 +1,5 @@
 from enum import Enum
+from tqdm.notebook import tqdm
 
 from bitcoin_core import *
 
@@ -350,6 +351,9 @@ def analyze_block(block_hash=None, num_of_txs=None):
     if not block_hash:
         block_hash = getbestblockhash()
 
+    if num_of_txs:
+        num_of_txs += 1
+
     # exclude the coinbase transaction
     transactions = getblock(block_hash)["tx"][1:num_of_txs]
 
@@ -365,7 +369,7 @@ def analyze_block(block_hash=None, num_of_txs=None):
     wallets[Wallets.LEDGER] = 0
     wallets[Wallets.UNKNOWN] = 0
 
-    for txid in transactions:
+    for txid in tqdm(transactions):
         wallets[detect_wallet(get_tx(txid))] += 1
 
     return wallets

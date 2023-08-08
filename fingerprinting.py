@@ -271,6 +271,10 @@ def spends_unconfirmed(tx):
 
 def detect_wallet(tx):
     prev_txouts  = [get_prev_txout(tx_in) for tx_in in tx["vin"]]
+
+    if not compressed_public_keys_only(tx, prev_txouts):
+        return Wallets.UNKNOWN
+
     if tx["version"] == 1:
         if address_reuse(tx, prev_txouts):
             return Wallets.TRUST
@@ -295,7 +299,7 @@ def detect_wallet(tx):
             return Wallets.TREZOR
     elif tx["version"] == 2:
         if is_anti_fee_sniping(tx) != -1:
-            if low_r_only(tx, prev_txouts):
+            if low_r_only(tx, prev_txouts) and not address_reuse(tx, prev_txouts):
                 output_structure = get_output_structure(tx) 
                 if (output_structure != [OutputStructureType.SINGLE]) and (not OutputStructureType.BIP69 in output_structure):
                     return Wallets.BITCOIN_CORE
@@ -313,6 +317,14 @@ def detect_wallet(tx):
                 return Wallets.ELECTRUM
         else:
             if signals_rbf(tx):
+                if has_multi_type_vin(tx, prev_txouts):
+                    return Wallets.UNKNOWN
+                spending_types = get_spending_types(tx, prev_txouts)
+                if "witness_v0_keyhash" not in spending_types:
+                    return Wallets.UNKNOWN
+                change_index = get_change_index(tx, prev_txouts)
+                if change_index >= 0 and change_index != len(tx["vout"]) - 1:
+                    return Wallets.UNKNOWN
                 return Wallets.BLUE_WALLET
 
             vout_len = len(tx["vout"])

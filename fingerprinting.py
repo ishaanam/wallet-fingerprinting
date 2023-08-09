@@ -19,15 +19,15 @@ class OutputStructureType(Enum):
     BIP69 = 4
 
 class Wallets(Enum):
-    BITCOIN_CORE = 0
-    ELECTRUM = 1
-    BLUE_WALLET = 2
-    COINBASE = 3
-    EXODUS = 4
-    TRUST = 5
-    TREZOR = 6
-    LEDGER = 7
-    UNKNOWN = 8
+    BITCOIN_CORE = "Bitcoin Core"
+    ELECTRUM = "Electrum"
+    BLUE_WALLET = "Blue Wallet"
+    COINBASE = "Coinbase Wallet"
+    EXODUS = "Exodus Wallet"
+    TRUST = "Trust Wallet"
+    TREZOR = "Trezor"
+    LEDGER = "Ledger"
+    UNKNOWN = "Unknown"
 
 def get_prev_txout(tx_in):
     prev_txout = decoderawtransaction(getrawtransaction(tx_in["txid"]))["vout"][tx_in["vout"]]
@@ -359,17 +359,17 @@ def analyze_block(block_hash=None, num_of_txs=None):
 
     wallets = {}
 
-    wallets[Wallets.BITCOIN_CORE] = 0
-    wallets[Wallets.ELECTRUM] = 0
-    wallets[Wallets.BLUE_WALLET] = 0
-    wallets[Wallets.COINBASE] = 0
-    wallets[Wallets.EXODUS] = 0
-    wallets[Wallets.TRUST] = 0
-    wallets[Wallets.TREZOR] = 0
-    wallets[Wallets.LEDGER] = 0
-    wallets[Wallets.UNKNOWN] = 0
+    wallets[Wallets.BITCOIN_CORE.value] = 0
+    wallets[Wallets.ELECTRUM.value] = 0
+    wallets[Wallets.BLUE_WALLET.value] = 0
+    wallets[Wallets.COINBASE.value] = 0
+    wallets[Wallets.EXODUS.value] = 0
+    wallets[Wallets.TRUST.value] = 0
+    wallets[Wallets.TREZOR.value] = 0
+    wallets[Wallets.LEDGER.value] = 0
+    wallets[Wallets.UNKNOWN.value] = 0
 
     for txid in tqdm(transactions):
-        wallets[detect_wallet(get_tx(txid))] += 1
+        wallets[detect_wallet(get_tx(txid)).value] += 1
 
     return wallets

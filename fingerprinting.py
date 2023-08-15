@@ -389,11 +389,16 @@ def analyze_block(block_hash=None, num_of_txs=None):
     if not block_hash:
         block_hash = getbestblockhash()
 
+    # exclude the coinbase transaction
+    transactions = getblock(block_hash)["tx"]
+
+    if len(transactions) <= num_of_txs:
+        num_of_txs = None
+
     if num_of_txs:
         num_of_txs += 1
 
-    # exclude the coinbase transaction
-    transactions = getblock(block_hash)["tx"][1:num_of_txs]
+    transactions = transactions[1:num_of_txs]
 
     wallets = {}
 

@@ -96,7 +96,7 @@ def get_input_order(tx, prev_txouts=None):
         if conf_height != -1:
             prevout_conf_heights[prevout] = conf_height
         else:
-            prevout_conf_heights.remove(prevout)
+            del prevout_conf_heights[prevout]
 
     ordered_conf_heights = list(prevout_conf_heights.values())
 
@@ -271,116 +271,193 @@ def spends_unconfirmed(tx):
     pass
 
 def detect_wallet(tx):
-    prev_txouts  = [get_prev_txout(tx_in) for tx_in in tx["vin"]]
+    possible_wallets = {
+        Wallets.BITCOIN_CORE,
+        Wallets.ELECTRUM,
+        Wallets.BLUE_WALLET,
+        Wallets.COINBASE,
+        Wallets.EXODUS,
+        Wallets.TRUST,
+        Wallets.TREZOR,
+        Wallets.LEDGER,
+    }
+
     reasoning = []
 
+    prev_txouts  = [get_prev_txout(tx_in) for tx_in in tx["vin"]]
+
+    # Anti-fee-sniping
+    if is_anti_fee_sniping(tx) != -1:
+        reasoning.append("Anti-fee-sniping")
+        # discard everything but Bitcoin Core and Electrum
+        possible_wallets = {
+            Wallets.BITCOIN_CORE,
+            Wallets.ELECTRUM,
+        }
+    else:
+        reasoning.append("No Anti-fee-sniping")
+        possible_wallets.discard(Wallets.BITCOIN_CORE)
+        possible_wallets.discard(Wallets.ELECTRUM)
+
+    # uncompressed public keys -> unknown
     if not compressed_public_keys_only(tx, prev_txouts):
-        reasoning.append("Uncompressed public key(s) used")
-        return Wallets.UNKNOWN, reasoning
+        reasoning.append("Uncompressed public key(s)")
+        possible_wallets = set()
+    else:
+        reasoning.append("All compressed public keys")
 
     if tx["version"] == 1:
         reasoning.append("nVersion = 1")
-        if address_reuse(tx, prev_txouts):
-            reasoning.append("Address reuse")
-            return Wallets.TRUST, reasoning
-        output_structure = get_output_structure(tx) 
-        if OutputStructureType.MULTI in output_structure:
-            reasoning.append("more than 2 outputs")
-            return Wallets.TREZOR, reasoning
-        if output_structure != [OutputStructureType.SINGLE]:
-            if OutputStructureType.BIP69 not in output_structure:
-                reasoning.append("Not BIP69")
-                return Wallets.LEDGER, reasoning
-        input_order = get_input_order(tx, prev_txouts)
-        if input_order != [InputSortingType.SINGLE]:
-            if InputSortingType.BIP69 not in input_order:
-                reasoning.append("Not BIP69")
-                return Wallets.LEDGER, reasoning
-            if InputSortingType.HISTORICAL not in input_order:
-                reasoning.append("Not historically ordered inputs")
-                return Wallets.TREZOR, reasoning
-        change_index = get_change_index(tx, prev_txouts)
-        if change_index >= 0:
-            if change_index != len(tx["vout"]) - 1: # if the last output was the change
-                reasoning.append("Last input was not change")
-                return Wallets.TREZOR, reasoning
-        spending_types = get_spending_types(tx, prev_txouts)
-        if "witness_v1_taproot" in spending_types:
-            reasoning.append("spends taproot utxo(s)")
-            return Wallets.TREZOR, reasoning
+        possible_wallets.discard(Wallets.BITCOIN_CORE)
+        possible_wallets.discard(Wallets.ELECTRUM)
+        possible_wallets.discard(Wallets.BLUE_WALLET)
+        possible_wallets.discard(Wallets.EXODUS)
+        possible_wallets.discard(Wallets.COINBASE)
     elif tx["version"] == 2:
         reasoning.append("nVersion = 2")
-        if is_anti_fee_sniping(tx) != -1:
-            reasoning.append("Does anti-fee-sniping")
-            if low_r_only(tx, prev_txouts) and not address_reuse(tx, prev_txouts):
-                reasoning.append("Low R")
-                reasoning.append("No address reuse")
-                output_structure = get_output_structure(tx) 
-                if (output_structure != [OutputStructureType.SINGLE]) and (not OutputStructureType.BIP69 in output_structure):
-                    reasoning.append("No BIP 69")
-                    return Wallets.BITCOIN_CORE, reasoning
-                input_ordering = get_input_order(tx, prev_txouts)
-                if (input_ordering != [InputSortingType.SINGLE]) and (not InputSortingType.BIP69 in input_ordering):
-                    reasoning.append("No BIP 69")
-                    return Wallets.BITCOIN_CORE, reasoning
-                reasoning.append("Follows BIP 69")
-                if has_multi_type_vin(tx, prev_txouts):
-                    reasoning.append("multi-type vin")
-                    return Wallets.BITCOIN_CORE, reasoning
-                spending_types = get_spending_types(tx, prev_txouts)
-                if "witness_v1_taproot" in spending_types:
-                    reasoning.append("spends taproot utxo(s)")
-                    return Wallets.BITCOIN_CORE, reasoning
-                matching_change_type = change_type_matched_inputs(tx, prev_txouts)
-                if matching_change_type == -1:
-                    reasoning.append("Change type matches outputs and not inputs")
-                    return Wallets.BITCOIN_CORE, reasoning
-                return Wallets.ELECTRUM, reasoning
-        else:
-            reasoning.append("Does not do anti-fee-sniping")
-            if signals_rbf(tx):
-                reasoning.append("Signals RBF")
-                if has_multi_type_vin(tx, prev_txouts):
-                    reasoning.append("multi-type vin")
-                    return Wallets.UNKNOWN, reasoning
-                reasoning.append("No multi-type vin")
-                spending_types = get_spending_types(tx, prev_txouts)
-                if "witness_v0_keyhash" not in spending_types:
-                    reasoning.append("Does not spend p2wpkh utxos")
-                    return Wallets.UNKNOWN, reasoning
-                reasoning.append("Spends only p2wpkh utxos")
-                change_index = get_change_index(tx, prev_txouts)
-                if change_index >= 0:
-                    if change_index != len(tx["vout"]) - 1:
-                        reasoning.append("Last index is not change")
-                        return Wallets.UNKNOWN, reasoning
-                    else:
-                        reasoning.append("Last index is change")
-                return Wallets.BLUE_WALLET, reasoning
-            else:
-                reasoning.append("Does not signal RBF")
+        possible_wallets.discard(Wallets.LEDGER)
+        possible_wallets.discard(Wallets.TREZOR)
+        possible_wallets.discard(Wallets.TRUST)
+    else: # non-standard version number
+        reasoning.append("non-standard nVersion number")
+        possible_wallets = set()
 
-            vout_len = len(tx["vout"])
-            if vout_len > 2:
-                reasoning.append("more than 2 outputs")
-                return Wallets.UNKNOWN, reasoning # doesn't signal RBF but has more than two outputs
-            elif vout_len == 2:
-                if address_reuse(tx, prev_txouts): # this is only address reuse between inputs and outputs (change same as input address)
-                    reasoning.append("Address reuse")
-                    return Wallets.EXODUS, reasoning
-                reasoning.append("No address reuse")
-                return Wallets.COINBASE, reasoning
-            elif vout_len == 1:
-                sending_types = get_sending_types(tx)
-                if "witness_v1_taproot" in sending_types:
-                    reasoning.append("Spends taproot outputs")
-                    return Wallets.EXODUS, reasoning
-                reasoning.append("Does not taproot outputs")
-                spending_types = get_spending_types(tx, prev_txouts)
-                if "pubkeyhash" in spending_types:
-                    reasoning.append("Spends p2pkh outputs")
-                    return Wallets.COINBASE, reasoning
-    return Wallets.UNKNOWN, reasoning
+    if not low_r_only(tx, prev_txouts):
+        reasoning.append("Not low-r-grinding")
+        possible_wallets.discard(Wallets.BITCOIN_CORE)
+        possible_wallets.discard(Wallets.ELECTRUM)
+    else:
+        reasoning.append("Low r signatures only")
+
+    if signals_rbf(tx):
+        reasoning.append("signals RBF")
+        possible_wallets.discard(Wallets.COINBASE)
+        possible_wallets.discard(Wallets.EXODUS)
+    else:
+        reasoning.append("does not signal RBF")
+        possible_wallets.discard(Wallets.BITCOIN_CORE)
+        possible_wallets.discard(Wallets.ELECTRUM)
+        possible_wallets.discard(Wallets.BLUE_WALLET)
+        possible_wallets.discard(Wallets.LEDGER)
+        possible_wallets.discard(Wallets.TREZOR)
+        possible_wallets.discard(Wallets.TRUST)
+        
+    if "witness_v1_taproot" in get_sending_types(tx):
+        reasoning.append("Sends to taproot address")
+        possible_wallets.discard(Wallets.COINBASE)
+
+    if "nulldata" in get_sending_types(tx):
+        reasoning.append("Creates OP_RETURN output")
+        possible_wallets.discard(Wallets.COINBASE)
+        possible_wallets.discard(Wallets.EXODUS)
+        possible_wallets.discard(Wallets.BLUE_WALLET)
+        possible_wallets.discard(Wallets.LEDGER)
+        possible_wallets.discard(Wallets.TRUST)
+        possible_wallets.discard(Wallets.COINBASE)
+
+    spending_types = get_spending_types(tx, prev_txouts)
+
+    if "witness_v1_taproot" in spending_types:
+        reasoning.append("Spends taproot output")
+        possible_wallets.discard(Wallets.COINBASE)
+        possible_wallets.discard(Wallets.EXODUS)
+        possible_wallets.discard(Wallets.ELECTRUM)
+        possible_wallets.discard(Wallets.BLUE_WALLET)
+        possible_wallets.discard(Wallets.LEDGER)
+        possible_wallets.discard(Wallets.TRUST)
+
+    if "witness_v0_scripthash" in spending_types:
+        possible_wallets.discard(Wallets.COINBASE)
+        possible_wallets.discard(Wallets.EXODUS)
+        possible_wallets.discard(Wallets.TRUST)
+        possible_wallets.discard(Wallets.TREZOR)
+
+    if "pubkeyhash" in spending_types:
+        reasoning.append("Spends P2PKH output")
+        possible_wallets.discard(Wallets.EXODUS)
+        possible_wallets.discard(Wallets.TRUST)
+
+    if has_multi_type_vin(tx, prev_txouts):
+        reasoning.append("Has multi-type vin")
+        possible_wallets.discard(Wallets.EXODUS)
+        possible_wallets.discard(Wallets.ELECTRUM)
+        possible_wallets.discard(Wallets.BLUE_WALLET)
+        possible_wallets.discard(Wallets.LEDGER)
+        possible_wallets.discard(Wallets.TREZOR)
+        possible_wallets.discard(Wallets.TRUST)
+
+    change_matched_inputs = change_type_matched_inputs(tx, prev_txouts)
+    if change_matched_inputs == -1:
+        reasoning.append("Change type matched outputs")
+        # change matched outputs
+        if Wallets.BITCOIN_CORE in possible_wallets:
+            # bitcoin core is the only possible wallet
+            possible_wallets = {Wallets.BITCOIN_CORE}
+        else:
+            possible_wallets = set() # no other wallets possible
+    elif change_matched_inputs == 1:
+        reasoning.append("Change type matched inputs")
+        possible_wallets.discard(Wallets.BITCOIN_CORE)
+
+    if address_reuse(tx, prev_txouts):
+        reasoning.append("Address reuse between vin and vout")
+        possible_wallets.discard(Wallets.COINBASE)
+        possible_wallets.discard(Wallets.BITCOIN_CORE)
+        possible_wallets.discard(Wallets.ELECTRUM)
+        possible_wallets.discard(Wallets.BLUE_WALLET)
+        possible_wallets.discard(Wallets.LEDGER)
+        possible_wallets.discard(Wallets.TREZOR)
+    else:
+        reasoning.append("No address reuse between vin and vout")
+        possible_wallets.discard(Wallets.EXODUS)
+        possible_wallets.discard(Wallets.TRUST)
+
+    input_order = get_input_order(tx, prev_txouts)
+    output_structure = get_output_structure(tx)
+
+    if OutputStructureType.MULTI in output_structure:
+        reasoning.append("More than 2 outputs")
+        possible_wallets.discard(Wallets.COINBASE)
+        possible_wallets.discard(Wallets.EXODUS)
+        possible_wallets.discard(Wallets.LEDGER)
+        possible_wallets.discard(Wallets.TRUST)
+
+    if OutputStructureType.BIP69 not in output_structure:
+        reasoning.append("BIP-69 not followed by outputs")
+        possible_wallets.discard(Wallets.ELECTRUM)
+        possible_wallets.discard(Wallets.TREZOR)
+    else:
+        reasoning.append("BIP-69 followed by outputs")
+
+    if InputSortingType.SINGLE not in input_order:
+        if InputSortingType.BIP69 not in input_order:
+            reasoning.append("BIP-69 not followed by inputs")
+            possible_wallets.discard(Wallets.ELECTRUM)
+            possible_wallets.discard(Wallets.TREZOR)
+        else:
+            reasoning.append("BIP-69 followed by inputs")
+        
+        if InputSortingType.HISTORICAL not in input_order:
+            reasoning.append("Inputs not ordered historically")
+            possible_wallets.discard(Wallets.LEDGER)
+        else:
+            reasoning.append("Inputs ordered historically")
+
+    change_index = get_change_index(tx, prev_txouts)
+    if change_index >= 0:
+        if change_index != len(tx["vout"]) - 1:
+            reasoning.append("Last index is not change")
+            possible_wallets.discard(Wallets.LEDGER)
+            possible_wallets.discard(Wallets.BLUE_WALLET)
+            possible_wallets.discard(Wallets.COINBASE)
+        else:
+            reasoning.append("Last index is change")
+
+    if len(possible_wallets) == 0:
+        # calculate the rest of the fingerprints
+        return {Wallets.UNKNOWN}, reasoning
+
+    return possible_wallets, reasoning
 
 def get_tx(txid):
     return decoderawtransaction(getrawtransaction(txid))
@@ -392,10 +469,10 @@ def analyze_block(block_hash=None, num_of_txs=None):
     # exclude the coinbase transaction
     transactions = getblock(block_hash)["tx"]
 
-    if len(transactions) <= num_of_txs:
-        num_of_txs = None
-
     if num_of_txs:
+        if len(transactions) <= num_of_txs:
+            num_of_txs = None
+
         num_of_txs += 1
 
     transactions = transactions[1:num_of_txs]

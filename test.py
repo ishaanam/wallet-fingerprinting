@@ -75,66 +75,65 @@ class TestFingerprinting(unittest.TestCase):
 
     def test_bitcoin_core(self):
         wallet, reasoning = detect_wallet(get_tx("ba6e613d7894e81f369bdf1c77c57c772245643bef256f9df1e23bc0225b2e81"))
-        assert wallet == Wallets.BITCOIN_CORE
+        assert wallet == {Wallets.BITCOIN_CORE}
 
     def test_electrum(self):
         wallet, reasoning = detect_wallet(get_tx("5d857401648a667303cde43295bce1326e6329353eac3dddf15b151e701405e7"))
-        assert wallet == Wallets.ELECTRUM
+        assert wallet == {Wallets.ELECTRUM}
 
     def test_blue_wallet(self):
         wallet, reasoning = detect_wallet(get_tx("e5b278b6504297d0203a814a22239dad2b84742ec82a995c046dfef4e06fc5a4"))
-        assert wallet == Wallets.BLUE_WALLET
+        assert wallet == {Wallets.BLUE_WALLET}
 
         wallet, reasoning = detect_wallet(get_tx("2fd284ed739a59ac6d6bd7f94fa2a244dd0cf88981551272b96708aebf260a57"))
-        assert wallet == Wallets.BLUE_WALLET
+        assert wallet == {Wallets.BLUE_WALLET}
 
         wallet, reasoning = detect_wallet(get_tx("1bf659e17568e48d6f47bb5470bc8df567cfe89d79c6e38cafbe798f43d5da22"))
-        assert wallet == Wallets.BLUE_WALLET
+        assert wallet == {Wallets.BLUE_WALLET}
 
         wallet, reasoning = detect_wallet(get_tx("702903c9818ac7847c9a2d9f948c9ee1ab25236821836170ef6919cd12c9e04c"))
-        assert wallet == Wallets.BLUE_WALLET
+        assert wallet == {Wallets.BLUE_WALLET}
 
         wallet, reasoning = detect_wallet(get_tx("Af39337032ec9d37aa91e41b152c1522cddc2070c08b06a1aaf5fe6ab6285a04"))
-        assert wallet == Wallets.BLUE_WALLET
+        assert wallet == {Wallets.BLUE_WALLET}
 
     def test_coinbase(self):
         wallet, reasoning = detect_wallet(get_tx("Bd4a846c05c37029caf7f6cef453112eef362ca511bd6a52f9082d85b7b2f207"))
-        assert wallet == Wallets.COINBASE
+        assert wallet == {Wallets.COINBASE}
 
         wallet, reasoning = detect_wallet(get_tx("60849af6e56c2ad0facd601cc5014398210898a7e6d5b9280b54f6395349663a"))
-        assert wallet == Wallets.COINBASE
+        assert wallet == {Wallets.COINBASE}
 
     def test_exodus(self):
         wallet, reasoning = detect_wallet(get_tx("6f8c37db6ed88bfd0fd483963ebf06c5557326f8d2a3617af5ceba878442e1ad"))
-        assert wallet == Wallets.EXODUS
+        assert wallet == {Wallets.EXODUS}
 
     def test_trust(self):
         wallet, reasoning = detect_wallet(get_tx("43f901163b8c27567d365f56bb804bd74904bd78d58017905f3c36cac971d9b6"))
-        assert wallet == Wallets.TRUST
+        assert wallet == {Wallets.TRUST}
 
     def test_trezor(self):
         wallet, reasoning = detect_wallet(get_tx("C1ba2810ac35c2d17503792ee728a3df9c41c658f5442d9326eb69580bcb7dd6"))
-        assert wallet == Wallets.TREZOR
+        assert wallet == {Wallets.TREZOR}
 
         wallet, reasoning = detect_wallet(get_tx("bc8c701594207360a409d64a9c797a46dd11a2d468948e8bb98e865249ca17e3"))
-        assert wallet == Wallets.TREZOR
+        assert wallet == {Wallets.TREZOR}
 
         wallet, reasoning = detect_wallet(get_tx("87670b12778d17c759db459479d66acfd1c4d444094270991d8e1de09a56cc7c"))
-        assert wallet == Wallets.TREZOR
+        assert wallet == {Wallets.TREZOR}
 
     def test_ledger(self):
         wallet, reasoning = detect_wallet(get_tx("01d5bfed27b98cd049d5e3547e93a447df6cbfa1a1d64c33aff427bef8b3cec4"))
-        assert wallet == Wallets.LEDGER
+        assert wallet == {Wallets.LEDGER}
 
         wallet, reasoning = detect_wallet(get_tx("C1094c70a9b23ca5d755234cffefca69f639d7a938f745dfd1190cc9c9d8b5ad"))
-        assert wallet == Wallets.LEDGER
+        assert wallet == {Wallets.LEDGER}
 
         wallet, reasoning = detect_wallet(get_tx("b2863a85081cd113094d50878153fab5c3160999e5fd2e044782b851c4dc72e1"))
-        assert wallet == Wallets.LEDGER
+        assert wallet == {Wallets.LEDGER}
 
-    def test_unknown(self):
         wallet, reasoning = detect_wallet(get_tx("047b1779fceb28852d890fd36bbc0481ed7aa8eb8b73fc1ab19d7707780c041d"))
-        assert wallet == Wallets.UNKNOWN
+        assert wallet == {Wallets.LEDGER}
 
 if __name__ == '__main__':
     unittest.main()

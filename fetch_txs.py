@@ -9,7 +9,7 @@ try:
     bitcoin_core.getbestblockhash()
     print("Using Bitcoin Core")
     local = True
-except requests.exceptions.ConnectionError:
+except (requests.exceptions.ConnectionError, requests.exceptions.InvalidSchema):
     # Use mempool.space instead
     mempool_space.getbestblockhash()
     print("Using mempool.space")

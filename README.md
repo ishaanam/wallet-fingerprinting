@@ -10,10 +10,13 @@ Ledger, Exodus, Trust Wallet, Coinbase Wallet) that this software is fammiliar w
 that one of the transactions provided exhibits the same exact fingerprints of one of these 8 wallets, but 
 in reality a different wallet was used to create that transaction.
 
-## Setup
+The notebook can be used [here on Google Colab](https://colab.research.google.com/drive/1hWVe9U-r5np_QiGNtM6qaapXq8YwQ1FX?usp=sharing), or it can be run locally (see below). These functions use Bitcoin Core or the mempool.space REST API to fetch information about the transactions. If Bitcoin Core is not configured, mempool.space will be used by default. The Google Colab notebook will always use mempool.space.
 
-In order to use this you must be running a Bitcoin Core node. You can connect to this node by
-configuring the RPC settings in `rpc_config.ini`.
+## Setting Up Bitcoin Core
+
+You can connect to your Bitcoin node by configuring the RPC settings in `rpc_config.ini`.
+
+## Setting Up Jupyter
 
 In order to use the Jupyter notebook, you need to have Jupyter installed. This can be done by running
 the following:
@@ -28,3 +31,12 @@ The notebook can be run by doing the following:
 $ jupyter notebook
 ```
 
+## Functions
+
+`detect_wallet(txid)`: Given a transactions id, this function will attempt to determine 
+the wallet that created it, and will provide information about the transaction.
+
+`analyze_block(block_hash, num_of_txs)`: This function looks at the first specified number of transactions
+in the specified block and breaks down the number of transactions likely created by the eight wallets
+mentioned above. If `block_hash` isn't specified, by default the latest block is analyzed. If `num_of_txs`
+is not specified, then all of the transactions in the block are analyzed (please not that this takes time).

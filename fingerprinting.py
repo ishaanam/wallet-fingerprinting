@@ -1,7 +1,7 @@
 from enum import Enum
 from tqdm.notebook import tqdm
 
-from bitcoin_core import *
+from fetch_txs import get_tx, get_confirmation_height, getbestblockhash, getblocktxs
 
 class InputSortingType(Enum):
     SINGLE = 0
@@ -29,56 +29,39 @@ class Wallets(Enum):
     LEDGER = "Ledger"
     UNKNOWN = "Unknown"
 
-def get_prev_txout(tx_in):
-    prev_txout = decoderawtransaction(getrawtransaction(tx_in["txid"]))["vout"][tx_in["vout"]]
-    return prev_txout
-
-def get_confirmation_height(txid):
-    mempool_space = f"https://mempool.space/api/tx/{txid}/status"
-    response = requests.request("GET", mempool_space)
-    ret = json.loads(response.text)
-    if not ret["confirmed"]:
-        return -1
-    return ret["block_height"]
-
-def get_spending_types(tx, prev_txouts=None):
+def get_spending_types(tx):
     types = []
-    if not prev_txouts:
-        prev_txouts  = [get_prev_txout(tx_in) for tx_in in tx["vin"]]
-    for prev_txout in prev_txouts:
-        types.append(prev_txout["scriptPubKey"]["type"])
+    for tx_in in tx["vin"]:
+        types.append(tx_in["prevout"]["scriptpubkey_type"])
     return types
 
 def get_sending_types(tx):
     types = []
     for tx_out in tx["vout"]:
-        types.append(tx_out["scriptPubKey"]["type"])
+        types.append(tx_out["scriptpubkey_type"])
     return types
 
-def compressed_public_keys_only(tx, prev_txouts=None):
-    input_types = get_spending_types(tx, prev_txouts)
+def compressed_public_keys_only(tx):
+    input_types = get_spending_types(tx)
     for i, input_type in enumerate(input_types):
-        if input_type == "witness_v0_keyhash":
-            if tx["vin"][i]["txinwitness"][1][1] == '4':
+        if input_type == "witness_v0_keyhash" or input_type == "v0_p2wpkh":
+            if tx["vin"][i]["witness"][1][1] == '4':
                 return False
-        elif input_type == "pubkeyhash":
-            if tx["vin"][i]["scriptSig"]["asm"][tx["vin"][i]["scriptSig"]["asm"].find(" ") + 2] == '4':
+        elif input_type == "pubkeyhash" or input_type == "p2pkh":
+            if tx["vin"][i]["scriptsig_asm"][tx["vin"][i]["scriptsig_asm"].find(" ") + 2] == '4':
                 return False
     return True
 
-def get_input_order(tx, prev_txouts=None):
+def get_input_order(tx):
     if len(tx["vin"]) == 1:
         return [InputSortingType.SINGLE]
     sorting_types = []
     amounts = []
     prevouts = []
 
-    if not prev_txouts:
-        prev_txouts  = [get_prev_txout(tx_in) for tx_in in tx["vin"]]
-
-    for i, tx_in in enumerate(tx["vin"]):
+    for tx_in in tx["vin"]:
         prevouts.append(f"{tx_in['txid']}:{tx_in['vout']}")
-        amounts.append(prev_txouts[i]["value"])
+        amounts.append(tx_in["prevout"]["value"])
 
     if sorted(amounts) == amounts:
         sorting_types.append(InputSortingType.ASCENDING)
@@ -108,27 +91,37 @@ def get_input_order(tx, prev_txouts=None):
     return sorting_types
 
 # Returns false if there is an r value of more than 32 bytes
-def low_r_only(tx, prev_txouts=None):
-    input_types = get_spending_types(tx, prev_txouts)
+def low_r_only(tx):
+    input_types = get_spending_types(tx)
     for i, input_type in enumerate(input_types):
         if input_type == "witness_v0_keyhash":
-            r_len = tx["vin"][i]["txinwitness"][0][6:8]
+            r_len = tx["vin"][i]["witness"][0][6:8]
             if int(r_len, 16) > 32:
                 return False
         elif input_type == "pubkeyhash":
-            r_len = tx["vin"][i]["scriptSig"]["asm"][6:8]
+            r_len = tx["vin"][i]["scriptsig_asm"][6:8]
             if int(r_len, 16) > 32:
                 return False
+        elif input_type == "p2pkh":
+            signature = tx["vin"][i]["scriptsig_asm"].split(' ')[1]
+            r_len = signature[6:8]
+            if int(r_len, 16) > 32:
+                return False
+        elif input_type == "v0_p2wpkh":
+            r_len = tx["vin"][i]["witness"][0][6:8]
+            if int(r_len, 16) > 32:
+                return False
+            
     return True
 
-def get_change_index(tx, prev_txouts=None):
+def get_change_index(tx):
     vout = tx["vout"]
 
     # if single, return -1 as index
     if len(vout) == 1:
         return -1
 
-    input_types = get_spending_types(tx, prev_txouts)
+    input_types = get_spending_types(tx)
     output_types = get_sending_types(tx)
 
     # if all inputs are of the same type, and only one output of the outputs is of that type, 
@@ -136,11 +129,11 @@ def get_change_index(tx, prev_txouts=None):
         if output_types.count(input_types[0]) == 1:
             return output_types.index(input_types[0])
 
+
     # same as one of the input addresses
-    if not prev_txouts:
-        prev_txouts  = [get_prev_txout(tx_in) for tx_in in tx["vin"]]
-    input_script_pub_keys = [tx_out["scriptPubKey"]["hex"] for tx_out in prev_txouts]
-    output_script_pub_keys = [tx_out["scriptPubKey"]["hex"] for tx_out in vout]
+    prev_txouts = [tx_in["prevout"] for tx_in in tx["vin"]]
+    input_script_pub_keys = [tx_out["scriptpubkey"] for tx_out in prev_txouts]
+    output_script_pub_keys = [tx_out["scriptpubkey"] for tx_out in vout]
 
     shared_address = list(set(output_script_pub_keys).intersection(set(input_script_pub_keys)))
 
@@ -191,7 +184,7 @@ def get_output_structure(tx):
 
     for tx_out in vout:
         amounts.append(tx_out["value"])
-        outputs.append(tx_out["scriptPubKey"]["hex"])
+        outputs.append(tx_out["scriptpubkey"])
 
     # There are duplicate amounts, so we also have to compare
     # by scriptPubKey
@@ -206,8 +199,8 @@ def get_output_structure(tx):
 
     return output_structure
 
-def has_multi_type_vin(tx, prev_txouts=None):
-    input_types = get_spending_types(tx, prev_txouts)
+def has_multi_type_vin(tx):
+    input_types = get_spending_types(tx)
     if len(set(input_types)) == 1:
         return False
     return True
@@ -229,13 +222,13 @@ def is_anti_fee_sniping(tx):
 # 1 = it matched inputs
 # 0 = it matched neither/both inputs nor outputs
 # -1 = it matched outputs
-def change_type_matched_inputs(tx, prev_txouts=None):
+def change_type_matched_inputs(tx):
     change_index = get_change_index(tx)
     if change_index < 0:
         return 2
-    change_type = tx["vout"][change_index]["scriptPubKey"]["type"]
+    change_type = tx["vout"][change_index]["scriptpubkey_type"]
 
-    input_types = get_spending_types(tx, prev_txouts)
+    input_types = get_spending_types(tx)
     output_types = get_sending_types(tx)
     output_types.remove(change_type)
 
@@ -248,12 +241,11 @@ def change_type_matched_inputs(tx, prev_txouts=None):
             return 1
         return 0 # neither
 
-def address_reuse(tx, prev_txouts=None):
-    if not prev_txouts:
-        prev_txouts  = [get_prev_txout(tx_in) for tx_in in tx["vin"]]
+def address_reuse(tx):
+    prev_txouts  = [tx_in["prevout"] for tx_in in tx["vin"]]
 
-    input_script_pub_keys = [tx_out["scriptPubKey"]["hex"] for tx_out in prev_txouts]
-    output_script_pub_keys = [tx_out["scriptPubKey"]["hex"] for tx_out in tx["vout"]]
+    input_script_pub_keys = [tx_out["scriptpubkey"] for tx_out in prev_txouts]
+    output_script_pub_keys = [tx_out["scriptpubkey"] for tx_out in tx["vout"]]
 
     shared_address = list(set(output_script_pub_keys).intersection(set(input_script_pub_keys)))
     if shared_address:
@@ -284,8 +276,6 @@ def detect_wallet(tx):
 
     reasoning = []
 
-    prev_txouts  = [get_prev_txout(tx_in) for tx_in in tx["vin"]]
-
     # Anti-fee-sniping
     if is_anti_fee_sniping(tx) != -1:
         reasoning.append("Anti-fee-sniping")
@@ -300,7 +290,7 @@ def detect_wallet(tx):
         possible_wallets.discard(Wallets.ELECTRUM)
 
     # uncompressed public keys -> unknown
-    if not compressed_public_keys_only(tx, prev_txouts):
+    if not compressed_public_keys_only(tx):
         reasoning.append("Uncompressed public key(s)")
         possible_wallets = set()
     else:
@@ -322,7 +312,7 @@ def detect_wallet(tx):
         reasoning.append("non-standard nVersion number")
         possible_wallets = set()
 
-    if not low_r_only(tx, prev_txouts):
+    if not low_r_only(tx):
         reasoning.append("Not low-r-grinding")
         possible_wallets.discard(Wallets.BITCOIN_CORE)
         possible_wallets.discard(Wallets.ELECTRUM)
@@ -342,11 +332,12 @@ def detect_wallet(tx):
         possible_wallets.discard(Wallets.TREZOR)
         possible_wallets.discard(Wallets.TRUST)
         
-    if "witness_v1_taproot" in get_sending_types(tx):
+    sending_types = get_sending_types(tx)
+    if "witness_v1_taproot" in sending_types or "v1_p2tr" in sending_types:
         reasoning.append("Sends to taproot address")
         possible_wallets.discard(Wallets.COINBASE)
 
-    if "nulldata" in get_sending_types(tx):
+    if "nulldata" in sending_types or "op_return" in sending_types:
         reasoning.append("Creates OP_RETURN output")
         possible_wallets.discard(Wallets.COINBASE)
         possible_wallets.discard(Wallets.EXODUS)
@@ -355,9 +346,9 @@ def detect_wallet(tx):
         possible_wallets.discard(Wallets.TRUST)
         possible_wallets.discard(Wallets.COINBASE)
 
-    spending_types = get_spending_types(tx, prev_txouts)
+    spending_types = get_spending_types(tx)
 
-    if "witness_v1_taproot" in spending_types:
+    if "witness_v1_taproot" in spending_types or "v1_p2tr" in spending_types:
         reasoning.append("Spends taproot output")
         possible_wallets.discard(Wallets.COINBASE)
         possible_wallets.discard(Wallets.EXODUS)
@@ -366,18 +357,18 @@ def detect_wallet(tx):
         possible_wallets.discard(Wallets.LEDGER)
         possible_wallets.discard(Wallets.TRUST)
 
-    if "witness_v0_scripthash" in spending_types:
+    if "witness_v0_scripthash" in spending_types or "v0_p2wsh" in spending_types:
         possible_wallets.discard(Wallets.COINBASE)
         possible_wallets.discard(Wallets.EXODUS)
         possible_wallets.discard(Wallets.TRUST)
         possible_wallets.discard(Wallets.TREZOR)
 
-    if "pubkeyhash" in spending_types:
+    if "pubkeyhash" in spending_types or "p2pkh" in spending_types:
         reasoning.append("Spends P2PKH output")
         possible_wallets.discard(Wallets.EXODUS)
         possible_wallets.discard(Wallets.TRUST)
 
-    if has_multi_type_vin(tx, prev_txouts):
+    if has_multi_type_vin(tx):
         reasoning.append("Has multi-type vin")
         possible_wallets.discard(Wallets.EXODUS)
         possible_wallets.discard(Wallets.ELECTRUM)
@@ -386,7 +377,7 @@ def detect_wallet(tx):
         possible_wallets.discard(Wallets.TREZOR)
         possible_wallets.discard(Wallets.TRUST)
 
-    change_matched_inputs = change_type_matched_inputs(tx, prev_txouts)
+    change_matched_inputs = change_type_matched_inputs(tx)
     if change_matched_inputs == -1:
         reasoning.append("Change type matched outputs")
         # change matched outputs
@@ -399,7 +390,7 @@ def detect_wallet(tx):
         reasoning.append("Change type matched inputs")
         possible_wallets.discard(Wallets.BITCOIN_CORE)
 
-    if address_reuse(tx, prev_txouts):
+    if address_reuse(tx):
         reasoning.append("Address reuse between vin and vout")
         possible_wallets.discard(Wallets.COINBASE)
         possible_wallets.discard(Wallets.BITCOIN_CORE)
@@ -412,7 +403,7 @@ def detect_wallet(tx):
         possible_wallets.discard(Wallets.EXODUS)
         possible_wallets.discard(Wallets.TRUST)
 
-    input_order = get_input_order(tx, prev_txouts)
+    input_order = get_input_order(tx)
     output_structure = get_output_structure(tx)
 
     if OutputStructureType.MULTI in output_structure:
@@ -443,13 +434,14 @@ def detect_wallet(tx):
         else:
             reasoning.append("Inputs ordered historically")
 
-    change_index = get_change_index(tx, prev_txouts)
+    change_index = get_change_index(tx)
     if change_index >= 0:
         if change_index != len(tx["vout"]) - 1:
             reasoning.append("Last index is not change")
             possible_wallets.discard(Wallets.LEDGER)
             possible_wallets.discard(Wallets.BLUE_WALLET)
             possible_wallets.discard(Wallets.COINBASE)
+
         else:
             reasoning.append("Last index is change")
 
@@ -459,15 +451,13 @@ def detect_wallet(tx):
 
     return possible_wallets, reasoning
 
-def get_tx(txid):
-    return decoderawtransaction(getrawtransaction(txid))
-
 def analyze_block(block_hash=None, num_of_txs=None):
     if not block_hash:
         block_hash = getbestblockhash()
 
+
     # exclude the coinbase transaction
-    transactions = getblock(block_hash)["tx"]
+    transactions = getblocktxs(block_hash)
 
     if num_of_txs:
         if len(transactions) <= num_of_txs:

@@ -5,13 +5,13 @@ def getbestblockhash():
     URL = "https://mempool.space/api/blocks/tip/hash"
     response = requests.request("GET", URL)
 
-    response.text
+    return response.text
 
 def getblocktransactions(block_hash):
     URL = f"https://mempool.space/api/block/{block_hash}/txids"
     response = requests.request("GET", URL)
 
-    return response.text
+    return json.loads(response.text)
 
 def getrawmempool():
     URL = "https://mempool.space/api/mempool/txids"
@@ -29,4 +29,4 @@ def getdecodedtransaction(txid):
     URL = f"https://mempool.space/api/tx/{txid}"
     response = requests.request("GET", URL)
 
-    return response.text
+    return json.loads(response.text)

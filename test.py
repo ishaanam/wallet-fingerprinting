@@ -1,27 +1,28 @@
 import unittest
 
-from bitcoin_core import getrawtransaction, decoderawtransaction
 from fingerprinting import *
 
 class TestFingerprinting(unittest.TestCase):
     def test_spending_types(self):
         tx = get_tx("60849af6e56c2ad0facd601cc5014398210898a7e6d5b9280b54f6395349663a")
 
-        assert get_spending_types(tx) == ["pubkeyhash", "witness_v0_keyhash"]
+        spending_types = get_spending_types(tx)
+        assert spending_types == ["pubkeyhash", "witness_v0_keyhash"] or spending_types == ["p2pkh", "v0_p2wpkh"]
+
+        tx = get_tx("E21c826797cdb41da79dc0f65026911ea5c5b59c8cf5d115f0f62b8cb9fc1b21")
+
+        spending_types = get_spending_types(tx)
+        assert spending_types == ["pubkeyhash", "witness_v1_taproot", "witness_v0_keyhash"] or spending_types == ["p2pkh", "v1_p2tr", "v0_p2wpkh"]
 
     def test_sending_types(self):
         tx = get_tx("2fd284ed739a59ac6d6bd7f94fa2a244dd0cf88981551272b96708aebf260a57")
 
-        assert get_sending_types(tx) == ["witness_v0_keyhash", "witness_v0_keyhash", "witness_v0_keyhash", "witness_v0_keyhash"]
+        sending_types = get_sending_types(tx)
+        assert sending_types == ["witness_v0_keyhash", "witness_v0_keyhash", "witness_v0_keyhash", "witness_v0_keyhash"] or sending_types == ["v0_p2wpkh", "v0_p2wpkh", "v0_p2wpkh", "v0_p2wpkh"]
 
     def test_has_multi_type_vin(self):
         assert not has_multi_type_vin(get_tx("5d857401648a667303cde43295bce1326e6329353eac3dddf15b151e701405e7"))
         assert has_multi_type_vin(get_tx("E21c826797cdb41da79dc0f65026911ea5c5b59c8cf5d115f0f62b8cb9fc1b21"))
-
-    def test_compressed_public_keys(self):
-        tx = get_tx("E21c826797cdb41da79dc0f65026911ea5c5b59c8cf5d115f0f62b8cb9fc1b21")
-
-        assert get_spending_types(tx) == ["pubkeyhash", "witness_v1_taproot", "witness_v0_keyhash"]
 
     def test_input_order(self):
         tx = get_tx("702903c9818ac7847c9a2d9f948c9ee1ab25236821836170ef6919cd12c9e04c")

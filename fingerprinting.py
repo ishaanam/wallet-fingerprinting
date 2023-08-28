@@ -466,7 +466,6 @@ def analyze_block(block_hash=None, num_of_txs=None):
         num_of_txs += 1
 
     transactions = transactions[1:num_of_txs]
-
     wallets = {}
 
     wallets[Wallets.BITCOIN_CORE.value] = 0
@@ -481,6 +480,9 @@ def analyze_block(block_hash=None, num_of_txs=None):
 
     for txid in tqdm(transactions):
         wallet, reasoning = detect_wallet(get_tx(txid))
-        wallets[wallet.value] += 1
+        if len(wallet) == 1:
+            wallets[list(wallet)[0].value] += 1
+        else:
+            wallets[Wallets.UNKNOWN.value] += 1
 
     return wallets

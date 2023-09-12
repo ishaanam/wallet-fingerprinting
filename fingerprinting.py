@@ -1,5 +1,5 @@
 from enum import Enum
-from tqdm.notebook import tqdm
+from tqdm.auto import tqdm
 
 from fetch_txs import get_tx, get_confirmation_height, getbestblockhash, getblocktxs
 

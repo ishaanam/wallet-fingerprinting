@@ -30,3 +30,11 @@ def getdecodedtransaction(txid):
     response = requests.request("GET", URL)
 
     return json.loads(response.text)
+
+def getblocks(start_height):
+    URL = f"https://mempool.space/api/v1/blocks/{start_height}"
+    response = requests.request("GET", URL)
+    blocks = json.loads(response.text)
+    
+    return [block["id"] for block in blocks]
+

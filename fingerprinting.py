@@ -27,7 +27,8 @@ class Wallets(Enum):
     TRUST = "Trust Wallet"
     TREZOR = "Trezor"
     LEDGER = "Ledger"
-    UNKNOWN = "Unknown"
+    UNCLEAR = "Unclear"
+    OTHER = "Other"
 
 def get_spending_types(tx):
     types = []
@@ -447,7 +448,7 @@ def detect_wallet(tx):
 
     if len(possible_wallets) == 0:
         # calculate the rest of the fingerprints
-        return {Wallets.UNKNOWN}, reasoning
+        return {Wallets.OTHER}, reasoning
 
     return possible_wallets, reasoning
 
@@ -476,13 +477,18 @@ def analyze_block(block_hash=None, num_of_txs=None):
     wallets[Wallets.TRUST.value] = 0
     wallets[Wallets.TREZOR.value] = 0
     wallets[Wallets.LEDGER.value] = 0
-    wallets[Wallets.UNKNOWN.value] = 0
+    wallets[Wallets.OTHER.value] = 0
+    wallets[Wallets.UNCLEAR.value] = 0
 
     for txid in tqdm(transactions):
         wallet, reasoning = detect_wallet(get_tx(txid))
-        if len(wallet) == 1:
+        if len(wallet) == 0:
+            wallets[Wallets.OTHER.value] += 1
+        elif len(wallet) == 1:
             wallets[list(wallet)[0].value] += 1
         else:
-            wallets[Wallets.UNKNOWN.value] += 1
+            # This means that there are multiple possible wallets, and it is
+            # unclear which of them it is
+            wallets[Wallets.UNCLEAR.value] += 1
 
     return wallets

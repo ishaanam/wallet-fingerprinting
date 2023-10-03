@@ -492,3 +492,7 @@ def analyze_block(block_hash=None, num_of_txs=None):
             wallets[Wallets.UNCLEAR.value] += 1
 
     return wallets
+
+if __name__ == '__main__':
+    block_hash = "00000000000000000004bcc50688d02a74d778201a47cc704a877d1442a58431"
+    print(analyze_block(block_hash=block_hash))

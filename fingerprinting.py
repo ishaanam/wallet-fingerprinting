@@ -189,7 +189,7 @@ def get_output_structure(tx):
 
     # There are duplicate amounts, so we also have to compare
     # by scriptPubKey
-    if set(amounts) != amounts:
+    if len(set(amounts)) != len(amounts):
         if sorted(outputs) == outputs and sorted(amounts) == amounts:
             output_structure.append(OutputStructureType.BIP69)
             return output_structure

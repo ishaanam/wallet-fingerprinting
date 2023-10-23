@@ -452,12 +452,31 @@ def detect_wallet(tx):
 
     return possible_wallets, reasoning
 
-def analyze_block(block_hash=None, num_of_txs=None):
+def analyze_txs(transactions):
+    wallets = {}
+    for wallet_type in Wallets:
+        wallets[wallet_type.value] =  {'total': 0, 'txs': []}
+
+    for txid in tqdm(transactions):
+        wallet, reasoning = detect_wallet(get_tx(txid))
+        if len(wallet) == 0:
+            wallets[Wallets.OTHER.value]['total'] +=1
+            wallets[Wallets.OTHER.value]['txs'].append(txid)
+        elif len(wallet) == 1:
+            wallets[list(wallet)[0].value]['total'] +=1
+            wallets[list(wallet)[0].value]['txs'].append(txid)
+        else:
+            # This means that there are multiple possible wallets, and it is
+            # unclear which of them it is
+            wallets[Wallets.UNCLEAR.value]['total'] +=1
+            wallets[Wallets.UNCLEAR.value]['txs'].append(txid)
+
+    return wallets
+
+def analyze_block(block_hash=None, num_of_txs=None, verbose=False):
     if not block_hash:
         block_hash = getbestblockhash()
 
-
-    # exclude the coinbase transaction
     transactions = getblocktxs(block_hash)
 
     if num_of_txs:
@@ -466,31 +485,15 @@ def analyze_block(block_hash=None, num_of_txs=None):
 
         num_of_txs += 1
 
+    # exclude the coinbase transaction
     transactions = transactions[1:num_of_txs]
-    wallets = {}
 
-    wallets[Wallets.BITCOIN_CORE.value] = 0
-    wallets[Wallets.ELECTRUM.value] = 0
-    wallets[Wallets.BLUE_WALLET.value] = 0
-    wallets[Wallets.COINBASE.value] = 0
-    wallets[Wallets.EXODUS.value] = 0
-    wallets[Wallets.TRUST.value] = 0
-    wallets[Wallets.TREZOR.value] = 0
-    wallets[Wallets.LEDGER.value] = 0
-    wallets[Wallets.OTHER.value] = 0
-    wallets[Wallets.UNCLEAR.value] = 0
+    wallets = analyze_txs(transactions)
+    if (verbose):
+        return wallets
 
-    for txid in tqdm(transactions):
-        wallet, reasoning = detect_wallet(get_tx(txid))
-        if len(wallet) == 0:
-            wallets[Wallets.OTHER.value] += 1
-        elif len(wallet) == 1:
-            wallets[list(wallet)[0].value] += 1
-        else:
-            # This means that there are multiple possible wallets, and it is
-            # unclear which of them it is
-            wallets[Wallets.UNCLEAR.value] += 1
-
+    for wallet_type in Wallets:
+        wallets[wallet_type.value] = wallets[wallet_type.value]['total']
     return wallets
 
 if __name__ == '__main__':

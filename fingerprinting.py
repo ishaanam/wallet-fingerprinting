@@ -1,7 +1,7 @@
 from enum import Enum
 from tqdm.auto import tqdm
 
-from fetch_txs import get_tx, get_confirmation_height, getbestblockhash, getblocktxs
+from fetch_txs import module, get_confirmation_height
 
 class InputSortingType(Enum):
     SINGLE = 0
@@ -458,7 +458,7 @@ def analyze_txs(transactions):
         wallets[wallet_type.value] =  {'total': 0, 'txs': []}
 
     for txid in tqdm(transactions):
-        wallet, reasoning = detect_wallet(get_tx(txid))
+        wallet, reasoning = detect_wallet(module.get_tx(txid))
         if len(wallet) == 0:
             wallets[Wallets.OTHER.value]['total'] +=1
             wallets[Wallets.OTHER.value]['txs'].append(txid)
@@ -475,9 +475,9 @@ def analyze_txs(transactions):
 
 def analyze_block(block_hash=None, num_of_txs=None, verbose=False):
     if not block_hash:
-        block_hash = getbestblockhash()
+        block_hash = module.getbestblockhash()
 
-    transactions = getblocktxs(block_hash)
+    transactions = module.getblocktxs(block_hash)
 
     if num_of_txs:
         if len(transactions) <= num_of_txs:
@@ -498,4 +498,4 @@ def analyze_block(block_hash=None, num_of_txs=None, verbose=False):
 
 if __name__ == '__main__':
     block_hash = "00000000000000000004bcc50688d02a74d778201a47cc704a877d1442a58431"
-    print(analyze_block(block_hash=block_hash))
+    print(analyze_block(block_hash=block_hash, num_of_txs=100))

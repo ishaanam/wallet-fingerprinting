@@ -10,7 +10,7 @@ Ledger, Exodus, Trust Wallet, Coinbase Wallet) that this software is fammiliar w
 that one of the transactions provided exhibits the same exact fingerprints of one of these 8 wallets, but 
 in reality a different wallet was used to create that transaction.
 
-The notebook can be used [here on Google Colab](https://colab.research.google.com/drive/1hWVe9U-r5np_QiGNtM6qaapXq8YwQ1FX?usp=sharing), or it can be run locally (see below). These functions use Bitcoin Core or the mempool.space REST API to fetch information about the transactions. If Bitcoin Core is not configured, mempool.space will be used by default. The Google Colab notebook will always use mempool.space.
+The notebook can be used [here on Google Colab](https://colab.research.google.com/drive/1hWVe9U-r5np_QiGNtM6qaapXq8YwQ1FX?usp=sharing), or it can be run locally (see below). These functions use Bitcoin Core or the mempool.space REST API to fetch information about the transactions. If Bitcoin Core is not configured, mempool.space will be used by default. The Google Colab notebook will always use mempool.space. Please note that mempool.space is always used to fetch the confirmation height of a transaction.
 
 ## Setting Up Bitcoin Core
 

@@ -84,6 +84,10 @@ class WalletReasoning:
         "CHANGE_MATCHED_OUTPUTS",  # #TODO: change_matched_inputs not exhaustive, should handle 0 and 2
         "HAS_MULTI_TYPE_VIN",  # #TODO: not exhaustive HAS_MULTI_TYPE_VIN
         "MULTI_OUTPUTS",  # #TODO: not exhaustive MULTI_OUTPUTS
+        "CHANGE_LAST_INDEX",  # #TODO: ref and check logic of change_index, NGE_LAST_INDEX
+        "BIP69_INPUT",  # #TODO: ref and check logic of InputSortingType.BIP69| ~.HISTORICAL
+        "CHANGE_MATCHED_INPUTS",  # TODO: change_matched_inputs not exhaustive, should handle 0 and 2
+        "HISTORICALLY_ORDERED_INPUT",  # #TODO: ref and check logic of InputSortingType.BIP69| ~.HISTORICAL
     )
 
     def __validate_completeness(self) -> bool:
@@ -563,6 +567,7 @@ def detect_wallet(tx: Tx) -> tuple[set[Wallets], list[str]]:
         new_reason.BIP69_OUTPUT = True
         # reasoning.append("BIP-69 followed by outputs")
 
+    # #TODO: ref and check logic of InputSortingType.BIP69| ~.HISTORICAL
     if InputSortingType.SINGLE not in input_order:
         if InputSortingType.BIP69 not in input_order:
             new_reason.BIP69_INPUT = False
@@ -582,6 +587,7 @@ def detect_wallet(tx: Tx) -> tuple[set[Wallets], list[str]]:
             # reasoning.append("Inputs ordered historically")
 
     change_index = get_change_index(tx)
+    # #TODO: ref and check logic of change_index, NGE_LAST_INDEX
     if change_index >= 0:
         if change_index != len(tx["vout"]) - 1:
             new_reason.CHANGE_LAST_INDEX = False

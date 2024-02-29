@@ -1,38 +1,32 @@
-from typing import TYPE_CHECKING, Any, TypedDict, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import matplotlib.pyplot as plt
 
-from fingerprinting import Wallets, analyze_block
+from fingerprinting import analyze_block
 from mempool_space import MempoolSpace
-from type import TxId
+from type import WalletAnalyzeResult
 
 if TYPE_CHECKING:
     plt = cast(Any, plt)  # plt has no stubs
 
 
-# #TODO-0: move to type.py, rename to WalletAnalyzeEntry
-class WalletAnalyzeResult(TypedDict):
-    total: int
-    txs: list[TxId]
-
-
 ms = MempoolSpace()
 
 
-def create_graph(block_height: int) -> dict[Wallets, WalletAnalyzeResult]:
-    wallet_info: dict[Wallets, WalletAnalyzeResult] = {}
+def create_graph(block_height: int) -> WalletAnalyzeResult:
+    wallet_info: WalletAnalyzeResult = {}
     blocks = ms.getblocks(block_height)
 
     for block in blocks:
         block_wallet_analyse_result = analyze_block(block)
-        # TODO: add a to_readable_format method to WalletAnalyzeResult
+        # TODO: add a to_readable_format method to WalletAnalyzeEntry
         for key in list(wallet_info.keys()):
             wallet_info[key]["total"] += block_wallet_analyse_result[key]["total"]
             wallet_info[key]["txs"] += block_wallet_analyse_result[key]["txs"]
     return wallet_info
 
 
-def plot_graph(wallet_info: dict[Wallets, WalletAnalyzeResult]):
+def plot_graph(wallet_info: WalletAnalyzeResult):
     wallets = [wallet.value for wallet in wallet_info.keys()]
     wallet_tx_count = [wi["total"] for wi in wallet_info.values()]
 

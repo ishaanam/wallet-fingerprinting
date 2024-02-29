@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import Any, Literal, TypeAlias, TypedDict
 
 #
@@ -100,3 +101,29 @@ class TxNormalized(TypedDict):
 TxIn: TypeAlias = TxInNormalized
 TxOut: TypeAlias = TxOutNormalized
 Tx: TypeAlias = TxNormalized
+
+
+#
+# SUPPORTIVE CLASSES
+#
+
+
+class Wallets(Enum):
+    BITCOIN_CORE = "Bitcoin Core"
+    ELECTRUM = "Electrum"
+    BLUE_WALLET = "Blue Wallet"
+    COINBASE = "Coinbase Wallet"
+    EXODUS = "Exodus Wallet"
+    TRUST = "Trust Wallet"
+    TREZOR = "Trezor"
+    LEDGER = "Ledger"
+    UNCLEAR = "Unclear"
+    OTHER = "Other"
+
+
+class WalletAnalyzeEntry(TypedDict):
+    total: int
+    txs: list[TxId]
+
+
+WalletAnalyzeResult: TypeAlias = dict[Wallets, WalletAnalyzeEntry]

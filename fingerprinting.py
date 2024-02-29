@@ -1,11 +1,21 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Literal, Optional, Sequence, TypedDict, Union, cast
+from typing import Literal, Optional, Sequence, Union, cast
 
 from tqdm.auto import tqdm
 
 from fetch_txs import get_confirmation_height, module
-from type import BlockId, FourInts, ScriptPubKeyType, ThreeInts, Tx, TxId, ValueType
+from type import (
+    BlockId,
+    FourInts,
+    ScriptPubKeyType,
+    ThreeInts,
+    Tx,
+    TxId,
+    ValueType,
+    WalletAnalyzeResult,
+    Wallets,
+)
 
 
 class InputSortingType(Enum):
@@ -23,19 +33,6 @@ class OutputStructureType(Enum):
     MULTI = 2
     CHANGE_LAST = 3
     BIP69 = 4
-
-
-class Wallets(Enum):
-    BITCOIN_CORE = "Bitcoin Core"
-    ELECTRUM = "Electrum"
-    BLUE_WALLET = "Blue Wallet"
-    COINBASE = "Coinbase Wallet"
-    EXODUS = "Exodus Wallet"
-    TRUST = "Trust Wallet"
-    TREZOR = "Trezor"
-    LEDGER = "Ledger"
-    UNCLEAR = "Unclear"
-    OTHER = "Other"
 
 
 @dataclass
@@ -618,14 +615,8 @@ def detect_wallet(tx: Tx) -> tuple[set[Wallets], list[str]]:
     return possible_wallets, new_reason.to_readable_format()
 
 
-# #TODO-0: move to type.py
-class WalletAnalyzeResult(TypedDict):
-    total: int
-    txs: list[TxId]
-
-
-def analyze_txs(transactions: Sequence[TxId]):
-    wallets: dict[Wallets, WalletAnalyzeResult] = dict()
+def analyze_txs(transactions: Sequence[TxId]) -> WalletAnalyzeResult:
+    wallets: WalletAnalyzeResult = dict()
     for wallet_type in Wallets:
         wallets[wallet_type] = {"total": 0, "txs": []}
 

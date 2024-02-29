@@ -1,8 +1,10 @@
-import requests
 import json
+
+import requests
+
 from bitcoin_core import BitcoinCore
 from mempool_space import MempoolSpace
-
+from type import TxId
 
 module = BitcoinCore()
 
@@ -13,7 +15,8 @@ except (requests.exceptions.ConnectionError, requests.exceptions.InvalidSchema):
     module = MempoolSpace()
     print("Using mempool.space")
 
-def get_confirmation_height(txid):
+
+def get_confirmation_height(txid: TxId) -> int:
     mempool_space = f"https://mempool.space/api/tx/{txid}/status"
     response = requests.request("GET", mempool_space)
     ret = json.loads(response.text)

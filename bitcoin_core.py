@@ -60,7 +60,8 @@ class BitcoinCore:
 
             new_in: TxInNormalized = {
                 "txid": tx_in["txid"],
-                # "vout": tx_in["vout"],
+                # locktime # not sure if needed
+                # "vout": tx_in["vout"], # should not be read
                 "scriptsig_asm": tx_in["scriptSig"]["asm"],
                 "scriptsig": tx_in["scriptSig"]["hex"],
                 "witness": tx_in.get("txinwitness", []),
@@ -99,12 +100,12 @@ class BitcoinCore:
             warnings.warn(f"{e}")
             return self._untyped_normalize_txout(txout)  # type: ignore
 
-    def get_tx(self, txid: TxId):
+    def get_tx(self, txid: TxId) -> Tx:
         return self.normalize_tx(
             self.decoderawtransaction(self.getrawtransaction(txid))
         )
 
-    def getbestblockhash(self):
+    def getbestblockhash(self) -> BlockHash:
         payload = json.dumps({"method": "getbestblockhash", "params": []})
         headers = {"content-type": "application/json", "cache-control": "no-cache"}
         response = requests.request(
@@ -113,7 +114,7 @@ class BitcoinCore:
 
         return json.loads(response.text)["result"]
 
-    def getblocktxs(self, block_hash: BlockHash):
+    def getblocktxs(self, block_hash: BlockHash) -> list[TxId]:
         payload = json.dumps({"method": "getblock", "params": [block_hash]})
         headers = {"content-type": "application/json", "cache-control": "no-cache"}
         response = requests.request(

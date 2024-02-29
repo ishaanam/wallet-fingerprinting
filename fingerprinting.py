@@ -1,8 +1,10 @@
 from enum import Enum
+from typing import Sequence
 
 from tqdm.auto import tqdm
 
 from fetch_txs import get_confirmation_height, module
+from type import BlockHash, OptionalBoolInt, Tx, TxId
 
 
 class InputSortingType(Enum):
@@ -234,7 +236,7 @@ def has_multi_type_vin(tx):
 # 0 if possible
 # 1 if very likely
 # Note: also add if there isn't OP_CLTV in one of the inputs
-def is_anti_fee_sniping(tx):
+def is_anti_fee_sniping(tx: Tx) -> OptionalBoolInt:
     locktime = tx["locktime"]
     if locktime == 0:
         return -1
@@ -294,7 +296,7 @@ def spends_unconfirmed(tx):
     pass
 
 
-def detect_wallet(tx):
+def detect_wallet(tx: Tx):
     possible_wallets = {
         Wallets.BITCOIN_CORE,
         Wallets.ELECTRUM,
@@ -484,7 +486,7 @@ def detect_wallet(tx):
     return possible_wallets, reasoning
 
 
-def analyze_txs(transactions):
+def analyze_txs(transactions: Sequence[TxId]):
     wallets = {}
     for wallet_type in Wallets:
         wallets[wallet_type.value] = {"total": 0, "txs": []}
@@ -506,20 +508,19 @@ def analyze_txs(transactions):
     return wallets
 
 
-def analyze_block(block_hash=None, num_of_txs=None, verbose=False):
-    if not block_hash:
+def analyze_block(
+    block_hash: BlockHash = "",
+    num_of_txs: int = 0,  # analyze first num_of_txs transactions, or all if 0
+    verbose: bool = False,
+):
+    if block_hash == "":
         block_hash = module.getbestblockhash()
-
     transactions = module.getblocktxs(block_hash)
 
-    if num_of_txs:
-        if len(transactions) <= num_of_txs:
-            num_of_txs = None
-
-        num_of_txs += 1
-
     # exclude the coinbase transaction
-    transactions = transactions[1:num_of_txs]
+    transactions = transactions[1:]
+    if num_of_txs != 0:
+        transactions = transactions[:num_of_txs]
 
     wallets = analyze_txs(transactions)
     if verbose:

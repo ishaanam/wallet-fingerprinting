@@ -1,5 +1,12 @@
-from typing import Any, TypeAlias, TypedDict
+from typing import Any, Literal, TypeAlias, TypedDict
 
+#
+# Common
+OptionalBool: TypeAlias = bool | None
+OptionalBoolInt: TypeAlias = Literal[-1, 0, 1]  # #TODO: try to use OptionalBool
+
+#
+# Crypto
 HexStr: TypeAlias = str  # hexadecimal string
 TxId: TypeAlias = str  # tx hash
 TxHex: TypeAlias = HexStr  # transaction data encoded as a hexadecimal

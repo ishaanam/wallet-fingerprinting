@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Sequence
+from typing import Sequence, TypedDict
 
 from tqdm.auto import tqdm
 
@@ -35,6 +35,29 @@ class Wallets(Enum):
     LEDGER = "Ledger"
     UNCLEAR = "Unclear"
     OTHER = "Other"
+
+
+class WalletReasoningKey(Enum):
+    ANTI_FEE_SNIPING = "Anti-fee-sniping"
+    UNCOMPRESSED_PUBLIC_KEYS = "Uncompressed public key(s)"
+    VERSION = "nVersion"
+    LOW_R_SIGNATURES = "Low r signatures only"
+    SIGNALS_RBF = "signals RBF"
+    TAPROOT_USAGE = "Sends to taproot address"
+    OP_RETURN_USAGE = "Creates OP_RETURN output"
+
+
+class WalletReasoning(TypedDict, total=False):
+    ANTI_FEE_SNIPING: bool
+    UNCOMPRESSED_PUBLIC_KEYS: bool
+    VERSION: int
+    LOW_R_SIGNATURES: bool
+    SIGNALS_RBF: bool
+    TAPROOT_USAGE: bool
+    OP_RETURN_USAGE: bool
+
+
+class PartialWalletReasoning(WalletReasoning, total=False): ...
 
 
 def get_spending_types(tx):

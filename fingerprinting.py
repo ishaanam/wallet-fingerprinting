@@ -618,6 +618,7 @@ def detect_wallet(tx: Tx) -> tuple[set[Wallets], list[str]]:
     return possible_wallets, new_reason.to_readable_format()
 
 
+# #TODO-0: move to type.py
 class WalletAnalyzeResult(TypedDict):
     total: int
     txs: list[TxId]
@@ -662,13 +663,15 @@ def analyze_block(
         transactions = transactions[:num_of_txs]
 
     txs_wallets_result = analyze_txs(transactions)
-    if verbose:
-        return txs_wallets_result
+    # #FIX: fix all calls to this function due to this change
+    # if verbose:
+    return txs_wallets_result
 
-    wallets: dict[str, int] = dict()
-    for wallet_type in Wallets:
-        wallets[wallet_type.name] = txs_wallets_result[wallet_type]["total"]
-    return wallets
+    # #TODO: add a readable format for the result
+    # wallets: dict[str, int] = dict()
+    # for wallet_type in Wallets:
+    #     wallets[wallet_type.name] = txs_wallets_result[wallet_type]["total"]
+    # return wallets
 
 
 if __name__ == "__main__":

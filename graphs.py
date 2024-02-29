@@ -18,9 +18,7 @@ def create_graph(block_height: int) -> WalletAnalyzeResult:
     blocks = ms.getblocks(block_height)
 
     for block in blocks:
-        block_wallet_analyse_result = analyze_block(block)
-        for key in list(wallet_info.keys()):
-            wallet_info[key] += block_wallet_analyse_result[key]
+        wallet_info += analyze_block(block)
     return wallet_info
 
 

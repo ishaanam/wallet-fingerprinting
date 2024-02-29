@@ -1,3 +1,4 @@
+from collections import Counter
 from enum import Enum
 from typing import Any, Literal, TypeAlias, TypedDict
 
@@ -123,20 +124,18 @@ class Wallets(Enum):
 
 class WalletAnalyzeResult(dict[Wallets, list[TxId]]):
     """
-    TODO: total in WalletAnalyzeEntry is redundant, we can use len(txs)
+    A dictionary with Wallets as keys and list of transactions as values
     """
 
     def __init__(self) -> None:
         super().__init__({wallet: [] for wallet in Wallets})
 
     @property
-    def counter(self) -> dict[Wallets, int]:
+    def counter(self) -> Counter[Wallets]:
         """
         Return the counter of transactions only
-
-        TODO: use Counter from collections, and change __str__ method
         """
-        return {k: len(v) for k, v in self.items()}
+        return Counter({k: len(v) for k, v in self.items()})
 
     @property
     def shorten(self) -> dict[str, int]:
@@ -144,6 +143,14 @@ class WalletAnalyzeResult(dict[Wallets, list[TxId]]):
         return plain dict with string-int pairs
         """
         return {k.value: c for k, c in self.counter.items()}
+
+    def __iadd__(self, other: "WalletAnalyzeResult") -> "WalletAnalyzeResult":
+        """
+        In-place addition with another WalletAnalyzeResult objects
+        """
+        for wallet in Wallets:
+            self[wallet] += other[wallet]
+        return self
 
     def __str__(self) -> str:
         """

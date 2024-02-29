@@ -5,8 +5,17 @@ from typing import Literal, Optional, Sequence, Union, cast
 from tqdm.auto import tqdm
 
 from fetch_txs import get_confirmation_height, module
-from type import (BlockId, FourInts, ScriptPubKeyType, ThreeInts, Tx, TxId,
-                  ValueType, WalletAnalyzeResult, Wallets)
+from type import (
+    BlockId,
+    FourInts,
+    ScriptPubKeyType,
+    ThreeInts,
+    Tx,
+    TxId,
+    ValueType,
+    WalletAnalyzeResult,
+    Wallets,
+)
 
 
 class InputSortingType(Enum):
@@ -639,15 +648,7 @@ def analyze_block(
         transactions = transactions[:num_of_txs]
 
     txs_wallets_result = analyze_txs(transactions)
-    # #FIX: fix all calls to this function due to this change
-    # if verbose:
     return txs_wallets_result
-
-    # #TODO: add a readable format for the result
-    # wallets: dict[str, int] = dict()
-    # for wallet_type in Wallets:
-    #     wallets[wallet_type.name] = txs_wallets_result[wallet_type]["total"]
-    # return wallets
 
 
 if __name__ == "__main__":

@@ -1,5 +1,6 @@
+from dataclasses import dataclass, field
 from enum import Enum
-from typing import Literal, Sequence, TypedDict, cast
+from typing import Literal, Optional, Sequence, Union, cast
 
 from tqdm.auto import tqdm
 
@@ -37,40 +38,84 @@ class Wallets(Enum):
     OTHER = "Other"
 
 
-class WalletReasoningKey(Enum):
-    ANTI_FEE_SNIPING = "Anti-fee-sniping"
-    UNCOMPRESSED_PUBLIC_KEYS = "Uncompressed public key(s)"
-    VERSION = "nVersion"
-    LOW_R_SIGNATURES = "Low r signatures only"
-    SIGNALS_RBF = "signals RBF"
-    TAPROOT_USAGE = "Sends to taproot address"
-    OP_RETURN_USAGE = "Creates OP_RETURN output"
+@dataclass
+class WalletReasoning:
+    """
+    A class to represent reasoning for wallet detection with methods
+    to validate the reasoning state and convert it to a readable format.
 
+    Attributes:
+    ----------
+    Each attribute represents a specific criterion used in wallet detection.
+    The attributes are optional and can be either True, False, or not set.
+    """
 
-class WalletReasoning(TypedDict, total=False):
-    ANTI_FEE_SNIPING: bool
-    UNCOMPRESSED_PUBLIC_KEYS: bool
-    VERSION: int | Literal["Unknown Version"]
-    LOW_R_SIGNATURES: bool
-    SIGNALS_RBF: bool
-    FROM_TAPROOT: bool
-    TO_TAPROOT: bool
-    FROM_OP_RETURN: bool
-    TO_OP_RETURN: bool
-    FROM_P2WSH: bool
-    TO_P2WSH: bool
-    CHANGE_MATCHED_OUTPUTS: bool
-    CHANGE_MATCHED_INPUTS: bool
-    ADDRESS_REUSE: bool
-    CHANGE_LAST_INDEX: bool
-    HAS_MULTI_TYPE_VIN: bool
-    MULTI_OUTPUTS: bool
-    BIP69_OUTPUT: bool
-    BIP69_INPUT: bool
-    HISTORICALLY_ORDERED_INPUT: bool
+    ANTI_FEE_SNIPING: Optional[bool] = field(
+        default=None, metadata={"description": "Anti-fee-sniping"}
+    )
+    UNCOMPRESSED_PUBLIC_KEYS: Optional[bool] = field(
+        default=None, metadata={"description": "Uncompressed public key(s)"}
+    )
+    TX_VERSION: Optional[Union[int, Literal["Unknown Version"]]] = field(default=None)
+    LOW_R_SIGNATURES: Optional[bool] = field(default=None)
+    SIGNALS_RBF: Optional[bool] = field(default=None)
+    FROM_TAPROOT: Optional[bool] = field(default=None)
+    TO_TAPROOT: Optional[bool] = field(default=None)
+    TO_OP_RETURN: Optional[bool] = field(default=None)
+    FROM_P2WSH: Optional[bool] = field(default=None)
+    TO_P2WSH: Optional[bool] = field(default=None)
+    FROM_P2PKH: Optional[bool] = field(default=None)
+    CHANGE_MATCHED_OUTPUTS: Optional[bool] = field(default=None)
+    CHANGE_MATCHED_INPUTS: Optional[bool] = field(default=None)
+    ADDRESS_REUSE: Optional[bool] = field(default=None)
+    CHANGE_LAST_INDEX: Optional[bool] = field(default=None)
+    HAS_MULTI_TYPE_VIN: Optional[bool] = field(default=None)
+    MULTI_OUTPUTS: Optional[bool] = field(default=None)
+    BIP69_OUTPUT: Optional[bool] = field(default=None)
+    BIP69_INPUT: Optional[bool] = field(default=None)
+    HISTORICALLY_ORDERED_INPUT: Optional[bool] = field(default=None)
+    VALID_NULL_KEYS = (
+        "FROM_TAPROOT",
+        "TO_TAPROOT",
+        "TO_OP_RETURN",
+        "FROM_P2PKH",
+        "FROM_P2WSH",
+        "TO_P2WSH",
+        "CHANGE_MATCHED_OUTPUTS",  # #TODO: change_matched_inputs not exhaustive, should handle 0 and 2
+        "HAS_MULTI_TYPE_VIN",  # #TODO: not exhaustive HAS_MULTI_TYPE_VIN
+        "MULTI_OUTPUTS",  # #TODO: not exhaustive MULTI_OUTPUTS
+    )
 
+    def __validate_completeness(self) -> bool:
+        """
+        Validates that all attributes of the WalletReasoning instance are defined and not None.
+        """
+        invalid_keys = list[str]()
+        for field_name, field_value in self.__dict__.items():
+            if field_name in self.VALID_NULL_KEYS:
+                continue
+            if field_value is None:
+                invalid_keys.append(field_name)
+        if invalid_keys:
+            print(f"Reasoning Validation failed: {invalid_keys=} are None")
+            return False
+        return True
 
-class PartialWalletReasoning(WalletReasoning, total=False): ...
+    def to_readable_format(self) -> list[str]:
+        """
+        Converts the reasoning into a readable format suitable for logging or display.
+        """
+        if not self.__validate_completeness():
+            return ["Incomplete reasoning"]
+        readable_list = list[str]()
+        for field_name, field_value in self.__dict__.items():
+            if field_name == "VALID_NULL_KEYS":
+                continue
+            description = self.__dataclass_fields__[field_name].metadata.get(
+                "description", field_name
+            )
+            readable_list.append(f"{description}: {'Yes' if field_value else 'No'}")
+        return readable_list
 
 
 def get_spending_types(tx: Tx) -> list[ScriptPubKeyType]:
@@ -346,13 +391,13 @@ def detect_wallet(tx: Tx) -> tuple[set[Wallets], list[str]]:
         Wallets.TREZOR,
         Wallets.LEDGER,
     }
-    new_reason = PartialWalletReasoning()
+    new_reason = WalletReasoning()
     reasoning = list[str]()
 
     # Anti-fee-sniping
     if is_anti_fee_sniping(tx) != -1:
         # reasoning.append("Anti-fee-sniping")
-        new_reason["ANTI_FEE_SNIPING"] = True
+        new_reason.ANTI_FEE_SNIPING = True
         # discard everything but Bitcoin Core and Electrum
         possible_wallets = {
             Wallets.BITCOIN_CORE,
@@ -360,21 +405,21 @@ def detect_wallet(tx: Tx) -> tuple[set[Wallets], list[str]]:
         }
     else:
         # reasoning.append("No Anti-fee-sniping")
-        new_reason["ANTI_FEE_SNIPING"] = False
+        new_reason.ANTI_FEE_SNIPING = False
         possible_wallets.discard(Wallets.BITCOIN_CORE)
         possible_wallets.discard(Wallets.ELECTRUM)
 
     # uncompressed public keys -> unknown
     if not compressed_public_keys_only(tx):
-        new_reason["UNCOMPRESSED_PUBLIC_KEYS"] = True
+        new_reason.UNCOMPRESSED_PUBLIC_KEYS = True
         # reasoning.append("Uncompressed public key(s)")
         possible_wallets = set()
     else:
-        new_reason["UNCOMPRESSED_PUBLIC_KEYS"] = False
+        new_reason.UNCOMPRESSED_PUBLIC_KEYS = False
         # reasoning.append("All compressed public keys")
 
     if tx["version"] == 1:
-        new_reason["VERSION"] = 1
+        new_reason.TX_VERSION = 1
         # reasoning.append("nVersion = 1")
         possible_wallets.discard(Wallets.BITCOIN_CORE)
         possible_wallets.discard(Wallets.ELECTRUM)
@@ -382,32 +427,32 @@ def detect_wallet(tx: Tx) -> tuple[set[Wallets], list[str]]:
         possible_wallets.discard(Wallets.EXODUS)
         possible_wallets.discard(Wallets.COINBASE)
     elif tx["version"] == 2:
-        new_reason["VERSION"] = 2
+        new_reason.TX_VERSION = 2
         # reasoning.append("nVersion = 2")
         possible_wallets.discard(Wallets.LEDGER)
         possible_wallets.discard(Wallets.TREZOR)
         possible_wallets.discard(Wallets.TRUST)
     else:  # non-standard version number
-        new_reason["VERSION"] = "Unknown Version"
+        new_reason.TX_VERSION = "Unknown Version"
         # reasoning.append("non-standard nVersion number")
         possible_wallets = set()
 
     if not low_r_only(tx):
-        new_reason["LOW_R_SIGNATURES"] = False
+        new_reason.LOW_R_SIGNATURES = False
         # reasoning.append("Not low-r-grinding")
         possible_wallets.discard(Wallets.BITCOIN_CORE)
         possible_wallets.discard(Wallets.ELECTRUM)
     else:
-        new_reason["LOW_R_SIGNATURES"] = True
+        new_reason.LOW_R_SIGNATURES = True
         # reasoning.append("Low r signatures only")
 
     if signals_rbf(tx):
-        new_reason["SIGNALS_RBF"] = True
+        new_reason.SIGNALS_RBF = True
         # reasoning.append("signals RBF")
         possible_wallets.discard(Wallets.COINBASE)
         possible_wallets.discard(Wallets.EXODUS)
     else:
-        new_reason["SIGNALS_RBF"] = False
+        new_reason.SIGNALS_RBF = False
         # reasoning.append("does not signal RBF")
         possible_wallets.discard(Wallets.BITCOIN_CORE)
         possible_wallets.discard(Wallets.ELECTRUM)
@@ -418,12 +463,12 @@ def detect_wallet(tx: Tx) -> tuple[set[Wallets], list[str]]:
 
     sending_types = get_sending_types(tx)
     if "witness_v1_taproot" in sending_types or "v1_p2tr" in sending_types:
-        new_reason["TO_TAPROOT"] = True
+        new_reason.TO_TAPROOT = True
         # reasoning.append("Sends to taproot address")
         possible_wallets.discard(Wallets.COINBASE)
 
     if "nulldata" in sending_types or "op_return" in sending_types:
-        new_reason["TO_OP_RETURN"] = True
+        new_reason.TO_OP_RETURN = True
         # reasoning.append("Creates OP_RETURN output")
         possible_wallets.discard(Wallets.COINBASE)
         possible_wallets.discard(Wallets.EXODUS)
@@ -435,7 +480,7 @@ def detect_wallet(tx: Tx) -> tuple[set[Wallets], list[str]]:
     spending_types = get_spending_types(tx)
 
     if "witness_v1_taproot" in spending_types or "v1_p2tr" in spending_types:
-        new_reason["FROM_TAPROOT"] = True
+        new_reason.FROM_TAPROOT = True
         # reasoning.append("Spends taproot output")
         possible_wallets.discard(Wallets.COINBASE)
         possible_wallets.discard(Wallets.EXODUS)
@@ -445,20 +490,20 @@ def detect_wallet(tx: Tx) -> tuple[set[Wallets], list[str]]:
         possible_wallets.discard(Wallets.TRUST)
 
     if "witness_v0_scripthash" in spending_types or "v0_p2wsh" in spending_types:
-        new_reason["TO_P2WSH"] = True
+        new_reason.FROM_P2WSH = True
         possible_wallets.discard(Wallets.COINBASE)
         possible_wallets.discard(Wallets.EXODUS)
         possible_wallets.discard(Wallets.TRUST)
         possible_wallets.discard(Wallets.TREZOR)
 
     if "pubkeyhash" in spending_types or "p2pkh" in spending_types:
-        new_reason["FROM_P2WSH"] = True
+        new_reason.FROM_P2PKH = True
         # reasoning.append("Spends P2PKH output")
         possible_wallets.discard(Wallets.EXODUS)
         possible_wallets.discard(Wallets.TRUST)
 
     if has_multi_type_vin(tx):
-        new_reason["HAS_MULTI_TYPE_VIN"] = True
+        new_reason.HAS_MULTI_TYPE_VIN = True
         # reasoning.append("Has multi-type vin")
         possible_wallets.discard(Wallets.EXODUS)
         possible_wallets.discard(Wallets.ELECTRUM)
@@ -469,7 +514,7 @@ def detect_wallet(tx: Tx) -> tuple[set[Wallets], list[str]]:
 
     change_matched_inputs = change_type_matched_inputs(tx)
     if change_matched_inputs == -1:
-        new_reason["CHANGE_MATCHED_OUTPUTS"] = True
+        new_reason.CHANGE_MATCHED_OUTPUTS = True
         # reasoning.append("Change type matched outputs")
         # change matched outputs
         if Wallets.BITCOIN_CORE in possible_wallets:
@@ -478,12 +523,13 @@ def detect_wallet(tx: Tx) -> tuple[set[Wallets], list[str]]:
         else:
             possible_wallets = set()  # no other wallets possible
     elif change_matched_inputs == 1:
-        new_reason["CHANGE_MATCHED_INPUTS"] = True
+        new_reason.CHANGE_MATCHED_INPUTS = True
         # reasoning.append("Change type matched inputs")
         possible_wallets.discard(Wallets.BITCOIN_CORE)
+    # else # #TODO: change_matched_inputs not exhaustive, should handle 0 and 2
 
     if address_reuse(tx):
-        new_reason["ADDRESS_REUSE"] = True
+        new_reason.ADDRESS_REUSE = True
         # reasoning.append("Address reuse between vin and vout")
         possible_wallets.discard(Wallets.COINBASE)
         possible_wallets.discard(Wallets.BITCOIN_CORE)
@@ -492,7 +538,7 @@ def detect_wallet(tx: Tx) -> tuple[set[Wallets], list[str]]:
         possible_wallets.discard(Wallets.LEDGER)
         possible_wallets.discard(Wallets.TREZOR)
     else:
-        new_reason["ADDRESS_REUSE"] = False
+        new_reason.ADDRESS_REUSE = False
         # reasoning.append("No address reuse between vin and vout")
         possible_wallets.discard(Wallets.EXODUS)
         possible_wallets.discard(Wallets.TRUST)
@@ -501,7 +547,7 @@ def detect_wallet(tx: Tx) -> tuple[set[Wallets], list[str]]:
     output_structure = get_output_structure(tx)
 
     if OutputStructureType.MULTI in output_structure:
-        new_reason["MULTI_OUTPUTS"] = True
+        new_reason.MULTI_OUTPUTS = True
         # reasoning.append("More than 2 outputs")
         possible_wallets.discard(Wallets.COINBASE)
         possible_wallets.discard(Wallets.EXODUS)
@@ -509,49 +555,49 @@ def detect_wallet(tx: Tx) -> tuple[set[Wallets], list[str]]:
         possible_wallets.discard(Wallets.TRUST)
 
     if OutputStructureType.BIP69 not in output_structure:
-        new_reason["BIP69_OUTPUT"] = False
+        new_reason.BIP69_OUTPUT = False
         # reasoning.append("BIP-69 not followed by outputs")
         possible_wallets.discard(Wallets.ELECTRUM)
         possible_wallets.discard(Wallets.TREZOR)
     else:
-        new_reason["BIP69_OUTPUT"] = True
+        new_reason.BIP69_OUTPUT = True
         # reasoning.append("BIP-69 followed by outputs")
 
     if InputSortingType.SINGLE not in input_order:
         if InputSortingType.BIP69 not in input_order:
-            new_reason["BIP69_INPUT"] = False
+            new_reason.BIP69_INPUT = False
             # reasoning.append("BIP-69 not followed by inputs")
             possible_wallets.discard(Wallets.ELECTRUM)
             possible_wallets.discard(Wallets.TREZOR)
         else:
-            new_reason["BIP69_INPUT"] = True
+            new_reason.BIP69_INPUT = True
             # reasoning.append("BIP-69 followed by inputs")
 
         if InputSortingType.HISTORICAL not in input_order:
-            new_reason["HISTORICALLY_ORDERED_INPUT"] = False
+            new_reason.HISTORICALLY_ORDERED_INPUT = False
             # reasoning.append("Inputs not ordered historically")
             possible_wallets.discard(Wallets.LEDGER)
         else:
-            new_reason["HISTORICALLY_ORDERED_INPUT"] = True
+            new_reason.HISTORICALLY_ORDERED_INPUT = True
             # reasoning.append("Inputs ordered historically")
 
     change_index = get_change_index(tx)
     if change_index >= 0:
         if change_index != len(tx["vout"]) - 1:
-            new_reason["CHANGE_LAST_INDEX"] = True
+            new_reason.CHANGE_LAST_INDEX = False
             # reasoning.append("Last index is not change")
             possible_wallets.discard(Wallets.LEDGER)
             possible_wallets.discard(Wallets.BLUE_WALLET)
             possible_wallets.discard(Wallets.COINBASE)
         else:
-            new_reason["CHANGE_LAST_INDEX"] = False
+            new_reason.CHANGE_LAST_INDEX = True
             # reasoning.append("Last index is change")
 
     if len(possible_wallets) == 0:
         # calculate the rest of the fingerprints
         return {Wallets.OTHER}, reasoning
 
-    return possible_wallets, reasoning
+    return possible_wallets, new_reason.to_readable_format()
 
 
 def analyze_txs(transactions: Sequence[TxId]):

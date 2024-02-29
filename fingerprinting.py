@@ -616,7 +616,7 @@ def detect_wallet(tx: Tx) -> tuple[set[Wallets], list[str]]:
 
 
 def analyze_txs(transactions: Sequence[TxId]) -> WalletAnalyzeResult:
-    wallets: WalletAnalyzeResult = dict()
+    wallets = WalletAnalyzeResult()
     for wallet_type in Wallets:
         wallets[wallet_type] = {"total": 0, "txs": []}
 
@@ -642,8 +642,7 @@ def analyze_txs(transactions: Sequence[TxId]) -> WalletAnalyzeResult:
 def analyze_block(
     block_hash: BlockId = "",
     num_of_txs: int = 0,  # analyze first num_of_txs transactions, or all if 0
-    verbose: bool = False,
-):
+) -> WalletAnalyzeResult:
     if block_hash == "":
         block_hash = module.getbestblockhash()
     transactions = module.getblocktxs(block_hash)

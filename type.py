@@ -126,4 +126,29 @@ class WalletAnalyzeEntry(TypedDict):
     txs: list[TxId]
 
 
-WalletAnalyzeResult: TypeAlias = dict[Wallets, WalletAnalyzeEntry]
+class WalletAnalyzeResult(dict[Wallets, WalletAnalyzeEntry]):
+    """
+    TODO: total in WalletAnalyzeEntry is redundant, we can use len(txs)
+    """
+
+    @property
+    def counter(self) -> dict[Wallets, int]:
+        """
+        Return the counter of transactions only
+
+        TODO: use Counter from collections, and change __str__ method
+        """
+        return {k: v["total"] for k, v in self.items()}
+
+    @property
+    def shorten(self) -> dict[str, int]:
+        """
+        return plain dict with string-int pairs
+        """
+        return {k.value: c for k, c in self.counter.items()}
+
+    def __str__(self) -> str:
+        """
+        For "user-friendly" output, we should show the count of txn only
+        """
+        return str(self.shorten)

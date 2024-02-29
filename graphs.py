@@ -14,7 +14,7 @@ ms = MempoolSpace()
 
 
 def create_graph(block_height: int) -> WalletAnalyzeResult:
-    wallet_info: WalletAnalyzeResult = {}
+    wallet_info = WalletAnalyzeResult()
     blocks = ms.getblocks(block_height)
 
     for block in blocks:

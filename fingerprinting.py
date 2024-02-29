@@ -1,11 +1,11 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Literal, Optional, Sequence, Union, cast
+from typing import Literal, Optional, Sequence, TypedDict, Union, cast
 
 from tqdm.auto import tqdm
 
 from fetch_txs import get_confirmation_height, module
-from type import BlockHash, OptionalBoolInt, ScriptPubKeyType, Tx, TxId, ValueType
+from type import BlockHash, FourInt, ScriptPubKeyType, ThreeInt, Tx, TxId, ValueType
 
 
 class InputSortingType(Enum):
@@ -136,7 +136,7 @@ def get_sending_types(tx: Tx) -> list[ScriptPubKeyType]:
     return types
 
 
-def compressed_public_keys_only(tx):
+def compressed_public_keys_only(tx: Tx) -> bool:
     input_types = get_spending_types(tx)
     for i, input_type in enumerate(input_types):
         if input_type == "witness_v0_keyhash" or input_type == "v0_p2wpkh":
@@ -196,7 +196,7 @@ def get_input_order(tx: Tx) -> list[InputSortingType]:
 
 
 # Returns false if there is an r value of more than 32 bytes
-def low_r_only(tx):
+def low_r_only(tx: Tx) -> bool:
     input_types = get_spending_types(tx)
     for i, input_type in enumerate(input_types):
         if input_type == "witness_v0_keyhash":
@@ -313,7 +313,7 @@ def get_output_structure(tx: Tx) -> list[OutputStructureType]:
     return output_structure
 
 
-def has_multi_type_vin(tx):
+def has_multi_type_vin(tx: Tx) -> bool:
     input_types = get_spending_types(tx)
     if len(set(input_types)) == 1:
         return False
@@ -324,7 +324,7 @@ def has_multi_type_vin(tx):
 # 0 if possible
 # 1 if very likely
 # Note: also add if there isn't OP_CLTV in one of the inputs
-def is_anti_fee_sniping(tx: Tx) -> OptionalBoolInt:
+def is_anti_fee_sniping(tx: Tx) -> ThreeInt:
     locktime = tx["locktime"]
     if locktime == 0:
         return -1
@@ -338,7 +338,7 @@ def is_anti_fee_sniping(tx: Tx) -> OptionalBoolInt:
 # 1 = it matched inputs
 # 0 = it matched neither/both inputs nor outputs
 # -1 = it matched outputs
-def change_type_matched_inputs(tx):
+def change_type_matched_inputs(tx: Tx) -> FourInt:
     change_index = get_change_index(tx)
     if change_index < 0:
         return 2
@@ -358,7 +358,7 @@ def change_type_matched_inputs(tx):
         return 0  # neither
 
 
-def address_reuse(tx):
+def address_reuse(tx: Tx) -> bool:
     prev_txouts = [tx_in["prevout"] for tx_in in tx["vin"]]
 
     input_script_pub_keys = [tx_out["scriptpubkey"] for tx_out in prev_txouts]
@@ -372,16 +372,27 @@ def address_reuse(tx):
     return False
 
 
-def signals_rbf(tx):
+def signals_rbf(tx: Tx) -> bool:
     for tx_in in tx["vin"]:
         if tx_in["sequence"] < 0xFFFFFFFF:
             return True
     return False
 
 
-# need historical mempool data for this to be completely accurate
-def spends_unconfirmed(tx):
-    pass
+def spends_unconfirmed(tx: Tx) -> bool:
+    """
+    returns true if any of the inputs are unconfirmed
+
+    Args:
+    tx (Tx): the transaction to check
+
+    Returns:
+    bool: True if any of the inputs are unconfirmed
+
+    TODO:
+    need historical mempool data for this to be completely accurate
+    """
+    raise NotImplementedError("spends_unconfirmed is not implemented")
 
 
 def detect_wallet(tx: Tx) -> tuple[set[Wallets], list[str]]:
@@ -599,6 +610,7 @@ def detect_wallet(tx: Tx) -> tuple[set[Wallets], list[str]]:
             new_reason.CHANGE_LAST_INDEX = True
             # reasoning.append("Last index is change")
 
+    # #FIX: I broke the logic
     if len(possible_wallets) == 0:
         # calculate the rest of the fingerprints
         return {Wallets.OTHER}, reasoning
@@ -606,24 +618,31 @@ def detect_wallet(tx: Tx) -> tuple[set[Wallets], list[str]]:
     return possible_wallets, new_reason.to_readable_format()
 
 
+class WalletAnalyzeResult(TypedDict):
+    total: int
+    txs: list[TxId]
+
+
 def analyze_txs(transactions: Sequence[TxId]):
-    wallets = {}
+    wallets: dict[Wallets, WalletAnalyzeResult] = dict()
     for wallet_type in Wallets:
-        wallets[wallet_type.value] = {"total": 0, "txs": []}
+        wallets[wallet_type] = {"total": 0, "txs": []}
 
     for txid in tqdm(transactions):
-        wallet, reasoning = detect_wallet(module.get_tx(txid))
+        wallet, _reasoning = detect_wallet(module.get_tx(txid))
+        # #TODO-DESIGN: case==0 not needed? : already handled in detect_wallet
         if len(wallet) == 0:
-            wallets[Wallets.OTHER.value]["total"] += 1
-            wallets[Wallets.OTHER.value]["txs"].append(txid)
+            wallets[Wallets.OTHER]["total"] += 1
+            wallets[Wallets.OTHER]["txs"].append(txid)
         elif len(wallet) == 1:
-            wallets[list(wallet)[0].value]["total"] += 1
-            wallets[list(wallet)[0].value]["txs"].append(txid)
+            wallets[list(wallet)[0]]["total"] += 1
+            wallets[list(wallet)[0]]["txs"].append(txid)
+        # #TODO-DESIGN: should handle in detect_wallet too?
         else:
             # This means that there are multiple possible wallets, and it is
             # unclear which of them it is
-            wallets[Wallets.UNCLEAR.value]["total"] += 1
-            wallets[Wallets.UNCLEAR.value]["txs"].append(txid)
+            wallets[Wallets.UNCLEAR]["total"] += 1
+            wallets[Wallets.UNCLEAR]["txs"].append(txid)
 
     return wallets
 
@@ -642,12 +661,13 @@ def analyze_block(
     if num_of_txs != 0:
         transactions = transactions[:num_of_txs]
 
-    wallets = analyze_txs(transactions)
+    txs_wallets_result = analyze_txs(transactions)
     if verbose:
-        return wallets
+        return txs_wallets_result
 
+    wallets: dict[str, int] = dict()
     for wallet_type in Wallets:
-        wallets[wallet_type.value] = wallets[wallet_type.value]["total"]
+        wallets[wallet_type.name] = txs_wallets_result[wallet_type]["total"]
     return wallets
 
 

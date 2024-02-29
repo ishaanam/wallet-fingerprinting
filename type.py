@@ -3,7 +3,8 @@ from typing import Any, Literal, TypeAlias, TypedDict
 #
 # Common
 OptionalBool: TypeAlias = bool | None
-OptionalBoolInt: TypeAlias = Literal[-1, 0, 1]  # #TODO: try to use OptionalBool
+ThreeInt: TypeAlias = Literal[-1, 0, 1]  # #TODO: try to use OptionalBool
+FourInt: TypeAlias = Literal[-1, 0, 1, 2]  # #TODO: try to type better
 
 #
 # Crypto
@@ -72,14 +73,17 @@ class TxInNormalized(TypedDict):
     prevout: TxOutNormalized
     txid: TxId
     vout: list[TxOutNormalized]  # #TODO:should not be read since we have prevout
+    # #FIX: below not implemented in bitcoin_core.py
+    sequence: int
 
 
 class TxNormalized(TypedDict):
     vin: list[TxInNormalized]
     vout: list[TxOutNormalized]
-    # not implemented in bitcoin_core.py
+    # #FIX: below not implemented in bitcoin_core.py
     locktime: int
     version: int
+    txid: TxId
 
 
 TxIn: TypeAlias = TxInNormalized

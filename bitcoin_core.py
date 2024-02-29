@@ -52,6 +52,8 @@ class BitcoinCore:
         return tx
 
     def _typed_normalize_tx(self, tx: TxNotNormalized) -> Tx:
+        # #fix: copy all keys from TxNotNormalized to Tx, check if there are any
+        # keys left in TxNotNormalized
         new_vin = list[TxInNormalized]()
         for tx_in in tx["vin"]:
             tx_in = cast(
@@ -63,11 +65,12 @@ class BitcoinCore:
                 "locktime": tx_in["locktime"],
                 # locktime # not sure if needed
                 "vout": tx_in["vout"],  # should not be read # type: ignore
-                # fix: `vout` in the old impl was not normalized like this
+                # #fix: `vout` in the old impl was not normalized like this
                 "scriptsig_asm": tx_in["scriptSig"]["asm"],
                 "scriptsig": tx_in["scriptSig"]["hex"],
                 "witness": tx_in.get("txinwitness", []),
                 "prevout": self.normalize_txout(self.get_prev_txout(tx_in)),
+                "sequence": tx_in["sequence"],
             }
             new_vin.append(new_in)
         new_vout = [self.normalize_txout(out) for out in tx["vout"]]

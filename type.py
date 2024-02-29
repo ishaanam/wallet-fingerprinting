@@ -61,6 +61,7 @@ class TxInNotNormalized(TypedDict):
     scriptSig: dict[str, Any]
     txinwitness: list[str]
     locktime: int
+    sequence: int
 
 
 class TxInNormalized(TypedDict):
@@ -71,7 +72,6 @@ class TxInNormalized(TypedDict):
     txid: TxId
     vout: list[TxOutNormalized]  # #TODO:should not be read since we have prevout
     locktime: int
-    # #FIX: below not implemented in bitcoin_core.py
     sequence: int
 
 

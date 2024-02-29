@@ -19,16 +19,14 @@ def create_graph(block_height: int) -> WalletAnalyzeResult:
 
     for block in blocks:
         block_wallet_analyse_result = analyze_block(block)
-        # TODO: add a to_readable_format method to WalletAnalyzeEntry
         for key in list(wallet_info.keys()):
-            wallet_info[key]["total"] += block_wallet_analyse_result[key]["total"]
-            wallet_info[key]["txs"] += block_wallet_analyse_result[key]["txs"]
+            wallet_info[key] += block_wallet_analyse_result[key]
     return wallet_info
 
 
 def plot_graph(wallet_info: WalletAnalyzeResult):
     wallets = [wallet.value for wallet in wallet_info.keys()]
-    wallet_tx_count = [wi["total"] for wi in wallet_info.values()]
+    wallet_tx_count = [len(txs) for txs in wallet_info.values()]
 
     plt.figure(figsize=(10, 5))  # width:10, height:5
     plt.bar(wallets, wallet_tx_count, color="purple", width=0.5)

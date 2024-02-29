@@ -5,17 +5,8 @@ from typing import Literal, Optional, Sequence, Union, cast
 from tqdm.auto import tqdm
 
 from fetch_txs import get_confirmation_height, module
-from type import (
-    BlockId,
-    FourInts,
-    ScriptPubKeyType,
-    ThreeInts,
-    Tx,
-    TxId,
-    ValueType,
-    WalletAnalyzeResult,
-    Wallets,
-)
+from type import (BlockId, FourInts, ScriptPubKeyType, ThreeInts, Tx, TxId,
+                  ValueType, WalletAnalyzeResult, Wallets)
 
 
 class InputSortingType(Enum):
@@ -617,24 +608,19 @@ def detect_wallet(tx: Tx) -> tuple[set[Wallets], list[str]]:
 
 def analyze_txs(transactions: Sequence[TxId]) -> WalletAnalyzeResult:
     wallets = WalletAnalyzeResult()
-    for wallet_type in Wallets:
-        wallets[wallet_type] = {"total": 0, "txs": []}
 
     for txid in tqdm(transactions):
         wallet, _reasoning = detect_wallet(module.get_tx(txid))
         # #TODO-DESIGN: case==0 not needed? : already handled in detect_wallet
         if len(wallet) == 0:
-            wallets[Wallets.OTHER]["total"] += 1
-            wallets[Wallets.OTHER]["txs"].append(txid)
+            wallets[Wallets.OTHER].append(txid)
         elif len(wallet) == 1:
-            wallets[list(wallet)[0]]["total"] += 1
-            wallets[list(wallet)[0]]["txs"].append(txid)
+            wallets[list(wallet)[0]].append(txid)
         # #TODO-DESIGN: should handle in detect_wallet too?
         else:
             # This means that there are multiple possible wallets, and it is
             # unclear which of them it is
-            wallets[Wallets.UNCLEAR]["total"] += 1
-            wallets[Wallets.UNCLEAR]["txs"].append(txid)
+            wallets[Wallets.UNCLEAR].append(txid)
 
     return wallets
 

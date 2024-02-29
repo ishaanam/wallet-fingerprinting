@@ -121,15 +121,13 @@ class Wallets(Enum):
     OTHER = "Other"
 
 
-class WalletAnalyzeEntry(TypedDict):
-    total: int
-    txs: list[TxId]
-
-
-class WalletAnalyzeResult(dict[Wallets, WalletAnalyzeEntry]):
+class WalletAnalyzeResult(dict[Wallets, list[TxId]]):
     """
     TODO: total in WalletAnalyzeEntry is redundant, we can use len(txs)
     """
+
+    def __init__(self) -> None:
+        super().__init__({wallet: [] for wallet in Wallets})
 
     @property
     def counter(self) -> dict[Wallets, int]:
@@ -138,7 +136,7 @@ class WalletAnalyzeResult(dict[Wallets, WalletAnalyzeEntry]):
 
         TODO: use Counter from collections, and change __str__ method
         """
-        return {k: v["total"] for k, v in self.items()}
+        return {k: len(v) for k, v in self.items()}
 
     @property
     def shorten(self) -> dict[str, int]:

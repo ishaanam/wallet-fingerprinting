@@ -5,7 +5,7 @@ from typing import Literal, Optional, Sequence, TypedDict, Union, cast
 from tqdm.auto import tqdm
 
 from fetch_txs import get_confirmation_height, module
-from type import BlockHash, FourInt, ScriptPubKeyType, ThreeInt, Tx, TxId, ValueType
+from type import BlockId, FourInts, ScriptPubKeyType, ThreeInts, Tx, TxId, ValueType
 
 
 class InputSortingType(Enum):
@@ -324,7 +324,7 @@ def has_multi_type_vin(tx: Tx) -> bool:
 # 0 if possible
 # 1 if very likely
 # Note: also add if there isn't OP_CLTV in one of the inputs
-def is_anti_fee_sniping(tx: Tx) -> ThreeInt:
+def is_anti_fee_sniping(tx: Tx) -> ThreeInts:
     locktime = tx["locktime"]
     if locktime == 0:
         return -1
@@ -338,7 +338,7 @@ def is_anti_fee_sniping(tx: Tx) -> ThreeInt:
 # 1 = it matched inputs
 # 0 = it matched neither/both inputs nor outputs
 # -1 = it matched outputs
-def change_type_matched_inputs(tx: Tx) -> FourInt:
+def change_type_matched_inputs(tx: Tx) -> FourInts:
     change_index = get_change_index(tx)
     if change_index < 0:
         return 2
@@ -648,7 +648,7 @@ def analyze_txs(transactions: Sequence[TxId]):
 
 
 def analyze_block(
-    block_hash: BlockHash = "",
+    block_hash: BlockId = "",
     num_of_txs: int = 0,  # analyze first num_of_txs transactions, or all if 0
     verbose: bool = False,
 ):

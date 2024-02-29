@@ -3,16 +3,16 @@ from typing import Any, Literal, TypeAlias, TypedDict
 #
 # Common
 OptionalBool: TypeAlias = bool | None
-ThreeInt: TypeAlias = Literal[-1, 0, 1]  # #TODO: try to use OptionalBool
-FourInt: TypeAlias = Literal[-1, 0, 1, 2]  # #TODO: try to type better
+HexStr: TypeAlias = str  # hexadecimal string
+ThreeInts: TypeAlias = Literal[-1, 0, 1]  # #TODO: try to use OptionalBool
+FourInts: TypeAlias = Literal[-1, 0, 1, 2]  # #TODO: try to type better
 
 #
 # Crypto
-HexStr: TypeAlias = str  # hexadecimal string
+BlockId: TypeAlias = str  # block hash
 TxId: TypeAlias = str  # tx hash
 TxHex: TypeAlias = HexStr  # transaction data encoded as a hexadecimal
-BlockHash: TypeAlias = str  # block hash
-ValueType: TypeAlias = int
+ValueType: TypeAlias = float
 # #TODO: check if ValueType is float, Decimal or int  # value in BTC
 
 # Unfinished type aliases #TODO
@@ -35,10 +35,14 @@ class ScriptPubKey(TypedDict):
     type: str
 
 
+# Transactions: TxOut, TxIn, Tx
+
+
 class TxOutNotNormalized(TypedDict):
     scriptPubKey: ScriptPubKey
     address: str
     type: str
+    value: ValueType
 
 
 class TxOutNormalized(TypedDict):
@@ -48,22 +52,14 @@ class TxOutNormalized(TypedDict):
     value: ValueType
 
 
-# TxIn
-
-
 class TxInNotNormalized(TypedDict):
-    scriptsig: str
     witness: list[str]
     prevout: dict[str, Any]
     txid: TxId
     vout: list[TxOutNotNormalized]
     scriptSig: dict[str, Any]
     txinwitness: list[str]
-
-
-class TxNotNormalized(TypedDict):
-    vin: list[TxInNotNormalized]
-    vout: list[TxOutNotNormalized]
+    locktime: int
 
 
 class TxInNormalized(TypedDict):
@@ -73,14 +69,29 @@ class TxInNormalized(TypedDict):
     prevout: TxOutNormalized
     txid: TxId
     vout: list[TxOutNormalized]  # #TODO:should not be read since we have prevout
+    locktime: int
     # #FIX: below not implemented in bitcoin_core.py
     sequence: int
+
+
+class TxNotNormalized(TypedDict):
+    """
+    Normalized here refers to "bitcoin_core.py" implementation,
+    not "mempool_space.py"
+    """
+
+    vin: list[TxInNotNormalized]
+    vout: list[TxOutNotNormalized]
+    # #TODO: base class
+    locktime: int
+    version: int
+    txid: TxId
 
 
 class TxNormalized(TypedDict):
     vin: list[TxInNormalized]
     vout: list[TxOutNormalized]
-    # #FIX: below not implemented in bitcoin_core.py
+    # #TODO: base class
     locktime: int
     version: int
     txid: TxId

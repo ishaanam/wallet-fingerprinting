@@ -6,7 +6,7 @@ from typing import cast, no_type_check
 import requests
 
 from type import (
-    BlockHash,
+    BlockId,
     Tx,
     TxHex,
     TxId,
@@ -60,8 +60,10 @@ class BitcoinCore:
 
             new_in: TxInNormalized = {
                 "txid": tx_in["txid"],
+                "locktime": tx_in["locktime"],
                 # locktime # not sure if needed
-                # "vout": tx_in["vout"], # should not be read
+                "vout": tx_in["vout"],  # should not be read # type: ignore
+                # fix: `vout` in the old impl was not normalized like this
                 "scriptsig_asm": tx_in["scriptSig"]["asm"],
                 "scriptsig": tx_in["scriptSig"]["hex"],
                 "witness": tx_in.get("txinwitness", []),
@@ -69,7 +71,13 @@ class BitcoinCore:
             }
             new_vin.append(new_in)
         new_vout = [self.normalize_txout(out) for out in tx["vout"]]
-        return {"vin": new_vin, "vout": new_vout}
+        return {
+            "vin": new_vin,
+            "vout": new_vout,
+            "locktime": tx["locktime"],
+            "version": tx["version"],
+            "txid": tx["txid"],
+        }
 
     def normalize_tx(self, tx: TxNotNormalized) -> Tx:
         try:
@@ -95,6 +103,7 @@ class BitcoinCore:
                 "scriptpubkey": txout["scriptPubKey"]["hex"],
                 "scriptpubkey_type": txout["scriptPubKey"]["type"],
                 "scriptpubkey_address": txout["scriptPubKey"].get("address", None),
+                "value": txout["value"],
             }
         except Exception as e:  # #TODO: remove
             warnings.warn(f"{e}")
@@ -105,7 +114,7 @@ class BitcoinCore:
             self.decoderawtransaction(self.getrawtransaction(txid))
         )
 
-    def getbestblockhash(self) -> BlockHash:
+    def getbestblockhash(self) -> BlockId:
         payload = json.dumps({"method": "getbestblockhash", "params": []})
         headers = {"content-type": "application/json", "cache-control": "no-cache"}
         response = requests.request(
@@ -114,7 +123,7 @@ class BitcoinCore:
 
         return json.loads(response.text)["result"]
 
-    def getblocktxs(self, block_hash: BlockHash) -> list[TxId]:
+    def getblocktxs(self, block_hash: BlockId) -> list[TxId]:
         payload = json.dumps({"method": "getblock", "params": [block_hash]})
         headers = {"content-type": "application/json", "cache-control": "no-cache"}
         response = requests.request(

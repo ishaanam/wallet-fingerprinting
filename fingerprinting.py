@@ -1,7 +1,9 @@
 from enum import Enum
+
 from tqdm.auto import tqdm
 
-from fetch_txs import module, get_confirmation_height
+from fetch_txs import get_confirmation_height, module
+
 
 class InputSortingType(Enum):
     SINGLE = 0
@@ -11,12 +13,14 @@ class InputSortingType(Enum):
     HISTORICAL = 4
     UNKNOWN = 5
 
+
 class OutputStructureType(Enum):
     SINGLE = 0
     DOUBLE = 1
     MULTI = 2
     CHANGE_LAST = 3
     BIP69 = 4
+
 
 class Wallets(Enum):
     BITCOIN_CORE = "Bitcoin Core"
@@ -30,11 +34,13 @@ class Wallets(Enum):
     UNCLEAR = "Unclear"
     OTHER = "Other"
 
+
 def get_spending_types(tx):
     types = []
     for tx_in in tx["vin"]:
         types.append(tx_in["prevout"]["scriptpubkey_type"])
     return types
+
 
 def get_sending_types(tx):
     types = []
@@ -42,16 +48,23 @@ def get_sending_types(tx):
         types.append(tx_out["scriptpubkey_type"])
     return types
 
+
 def compressed_public_keys_only(tx):
     input_types = get_spending_types(tx)
     for i, input_type in enumerate(input_types):
         if input_type == "witness_v0_keyhash" or input_type == "v0_p2wpkh":
-            if tx["vin"][i]["witness"][1][1] == '4':
+            if tx["vin"][i]["witness"][1][1] == "4":
                 return False
         elif input_type == "pubkeyhash" or input_type == "p2pkh":
-            if tx["vin"][i]["scriptsig_asm"][tx["vin"][i]["scriptsig_asm"].find(" ") + 2] == '4':
+            if (
+                tx["vin"][i]["scriptsig_asm"][
+                    tx["vin"][i]["scriptsig_asm"].find(" ") + 2
+                ]
+                == "4"
+            ):
                 return False
     return True
+
 
 def get_input_order(tx):
     if len(tx["vin"]) == 1:
@@ -75,7 +88,7 @@ def get_input_order(tx):
     prevout_conf_heights = {prevout: None for prevout in prevouts}
 
     for prevout in prevouts:
-        txid = prevout[0:prevout.find(":")]
+        txid = prevout[0 : prevout.find(":")]
         conf_height = get_confirmation_height(txid)
         if conf_height != -1:
             prevout_conf_heights[prevout] = conf_height
@@ -91,6 +104,7 @@ def get_input_order(tx):
         sorting_types.append(InputSortingType.UNKNOWN)
     return sorting_types
 
+
 # Returns false if there is an r value of more than 32 bytes
 def low_r_only(tx):
     input_types = get_spending_types(tx)
@@ -104,7 +118,7 @@ def low_r_only(tx):
             if int(r_len, 16) > 32:
                 return False
         elif input_type == "p2pkh":
-            signature = tx["vin"][i]["scriptsig_asm"].split(' ')[1]
+            signature = tx["vin"][i]["scriptsig_asm"].split(" ")[1]
             r_len = signature[6:8]
             if int(r_len, 16) > 32:
                 return False
@@ -112,8 +126,9 @@ def low_r_only(tx):
             r_len = tx["vin"][i]["witness"][0][6:8]
             if int(r_len, 16) > 32:
                 return False
-            
+
     return True
+
 
 def get_change_index(tx):
     vout = tx["vout"]
@@ -125,26 +140,32 @@ def get_change_index(tx):
     input_types = get_spending_types(tx)
     output_types = get_sending_types(tx)
 
-    # if all inputs are of the same type, and only one output of the outputs is of that type, 
-    if (len(set(input_types)) == 1):
+    # if all inputs are of the same type, and only one output of the outputs is of that type,
+    if len(set(input_types)) == 1:
         if output_types.count(input_types[0]) == 1:
             return output_types.index(input_types[0])
-
 
     # same as one of the input addresses
     prev_txouts = [tx_in["prevout"] for tx_in in tx["vin"]]
     input_script_pub_keys = [tx_out["scriptpubkey"] for tx_out in prev_txouts]
     output_script_pub_keys = [tx_out["scriptpubkey"] for tx_out in vout]
 
-    shared_address = list(set(output_script_pub_keys).intersection(set(input_script_pub_keys)))
+    shared_address = list(
+        set(output_script_pub_keys).intersection(set(input_script_pub_keys))
+    )
 
-    if len(shared_address) == 1 and output_script_pub_keys.count(shared_address[0]) == 1:
+    if (
+        len(shared_address) == 1
+        and output_script_pub_keys.count(shared_address[0]) == 1
+    ):
         return output_script_pub_keys.index(shared_address[0])
 
     # TODO: Unnecessary Input Heuristic: https://en.bitcoin.it/wiki/Privacy#Change_address_detection
     # input_amounts = [tx_out["value"] for tx_out in prev_txouts]
 
-    output_amounts = [int(tx_out["value"] * 100000000) for tx_out in vout] # stored as satoshis
+    output_amounts = [
+        int(tx_out["value"] * 100000000) for tx_out in vout
+    ]  # stored as satoshis
 
     possible_index = []
 
@@ -157,6 +178,7 @@ def get_change_index(tx):
 
     # else inconclusive, return -2
     return -2
+
 
 def get_output_structure(tx):
     vout = tx["vout"]
@@ -200,11 +222,13 @@ def get_output_structure(tx):
 
     return output_structure
 
+
 def has_multi_type_vin(tx):
     input_types = get_spending_types(tx)
     if len(set(input_types)) == 1:
         return False
     return True
+
 
 # -1 if definitely not
 # 0 if possible
@@ -218,6 +242,7 @@ def is_anti_fee_sniping(tx):
     if tx_height - locktime >= 100:
         return 0
     return 1
+
 
 # 2 = no change / change inconclusive
 # 1 = it matched inputs
@@ -235,33 +260,39 @@ def change_type_matched_inputs(tx):
 
     if change_type in output_types:
         if change_type in input_types:
-            return 0 # both
+            return 0  # both
         return -1
     else:
         if change_type in input_types:
             return 1
-        return 0 # neither
+        return 0  # neither
+
 
 def address_reuse(tx):
-    prev_txouts  = [tx_in["prevout"] for tx_in in tx["vin"]]
+    prev_txouts = [tx_in["prevout"] for tx_in in tx["vin"]]
 
     input_script_pub_keys = [tx_out["scriptpubkey"] for tx_out in prev_txouts]
     output_script_pub_keys = [tx_out["scriptpubkey"] for tx_out in tx["vout"]]
 
-    shared_address = list(set(output_script_pub_keys).intersection(set(input_script_pub_keys)))
+    shared_address = list(
+        set(output_script_pub_keys).intersection(set(input_script_pub_keys))
+    )
     if shared_address:
         return True
     return False
 
+
 def signals_rbf(tx):
     for tx_in in tx["vin"]:
-        if tx_in["sequence"] < 0xffffffff:
+        if tx_in["sequence"] < 0xFFFFFFFF:
             return True
     return False
+
 
 # need historical mempool data for this to be completely accurate
 def spends_unconfirmed(tx):
     pass
+
 
 def detect_wallet(tx):
     possible_wallets = {
@@ -309,7 +340,7 @@ def detect_wallet(tx):
         possible_wallets.discard(Wallets.LEDGER)
         possible_wallets.discard(Wallets.TREZOR)
         possible_wallets.discard(Wallets.TRUST)
-    else: # non-standard version number
+    else:  # non-standard version number
         reasoning.append("non-standard nVersion number")
         possible_wallets = set()
 
@@ -332,7 +363,7 @@ def detect_wallet(tx):
         possible_wallets.discard(Wallets.LEDGER)
         possible_wallets.discard(Wallets.TREZOR)
         possible_wallets.discard(Wallets.TRUST)
-        
+
     sending_types = get_sending_types(tx)
     if "witness_v1_taproot" in sending_types or "v1_p2tr" in sending_types:
         reasoning.append("Sends to taproot address")
@@ -386,7 +417,7 @@ def detect_wallet(tx):
             # bitcoin core is the only possible wallet
             possible_wallets = {Wallets.BITCOIN_CORE}
         else:
-            possible_wallets = set() # no other wallets possible
+            possible_wallets = set()  # no other wallets possible
     elif change_matched_inputs == 1:
         reasoning.append("Change type matched inputs")
         possible_wallets.discard(Wallets.BITCOIN_CORE)
@@ -428,7 +459,7 @@ def detect_wallet(tx):
             possible_wallets.discard(Wallets.TREZOR)
         else:
             reasoning.append("BIP-69 followed by inputs")
-        
+
         if InputSortingType.HISTORICAL not in input_order:
             reasoning.append("Inputs not ordered historically")
             possible_wallets.discard(Wallets.LEDGER)
@@ -452,26 +483,28 @@ def detect_wallet(tx):
 
     return possible_wallets, reasoning
 
+
 def analyze_txs(transactions):
     wallets = {}
     for wallet_type in Wallets:
-        wallets[wallet_type.value] =  {'total': 0, 'txs': []}
+        wallets[wallet_type.value] = {"total": 0, "txs": []}
 
     for txid in tqdm(transactions):
         wallet, reasoning = detect_wallet(module.get_tx(txid))
         if len(wallet) == 0:
-            wallets[Wallets.OTHER.value]['total'] +=1
-            wallets[Wallets.OTHER.value]['txs'].append(txid)
+            wallets[Wallets.OTHER.value]["total"] += 1
+            wallets[Wallets.OTHER.value]["txs"].append(txid)
         elif len(wallet) == 1:
-            wallets[list(wallet)[0].value]['total'] +=1
-            wallets[list(wallet)[0].value]['txs'].append(txid)
+            wallets[list(wallet)[0].value]["total"] += 1
+            wallets[list(wallet)[0].value]["txs"].append(txid)
         else:
             # This means that there are multiple possible wallets, and it is
             # unclear which of them it is
-            wallets[Wallets.UNCLEAR.value]['total'] +=1
-            wallets[Wallets.UNCLEAR.value]['txs'].append(txid)
+            wallets[Wallets.UNCLEAR.value]["total"] += 1
+            wallets[Wallets.UNCLEAR.value]["txs"].append(txid)
 
     return wallets
+
 
 def analyze_block(block_hash=None, num_of_txs=None, verbose=False):
     if not block_hash:
@@ -489,13 +522,14 @@ def analyze_block(block_hash=None, num_of_txs=None, verbose=False):
     transactions = transactions[1:num_of_txs]
 
     wallets = analyze_txs(transactions)
-    if (verbose):
+    if verbose:
         return wallets
 
     for wallet_type in Wallets:
-        wallets[wallet_type.value] = wallets[wallet_type.value]['total']
+        wallets[wallet_type.value] = wallets[wallet_type.value]["total"]
     return wallets
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     block_hash = "00000000000000000004bcc50688d02a74d778201a47cc704a877d1442a58431"
     print(analyze_block(block_hash=block_hash, num_of_txs=100))

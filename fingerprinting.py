@@ -136,17 +136,13 @@ def get_sending_types(tx: Tx) -> list[ScriptPubKeyType]:
 def compressed_public_keys_only(tx: Tx) -> bool:
     input_types = get_spending_types(tx)
     for i, input_type in enumerate(input_types):
-        if input_type == "witness_v0_keyhash" or input_type == "v0_p2wpkh":
-            if tx["vin"][i]["witness"][1][1] == "4":
-                return False
-        elif input_type == "pubkeyhash" or input_type == "p2pkh":
-            if (
-                tx["vin"][i]["scriptsig_asm"][
-                    tx["vin"][i]["scriptsig_asm"].find(" ") + 2
-                ]
-                == "4"
-            ):
-                return False
+        asm = tx["vin"][i]["scriptsig_asm"]
+        is_p2wpkh = input_type in ("witness_v0_keyhash", "v0_p2wpkh")
+        is_p2pkh = input_type in ("pubkeyhash", "p2pkh")
+        if (is_p2wpkh and tx["vin"][i]["witness"][1][1] == "4") or (
+            is_p2pkh and asm[asm.find(" ") + 2] == "4"
+        ):
+            return False
     return True
 
 
@@ -196,7 +192,7 @@ def get_input_order(tx: Tx) -> list[InputSortingType]:
 def low_r_only(tx: Tx) -> bool:
     input_types = get_spending_types(tx)
     for i, input_type in enumerate(input_types):
-        if input_type == "witness_v0_keyhash":
+        if input_type == "witness_v0_keyhash" or input_type == "v0_p2wpkh":
             r_len = tx["vin"][i]["witness"][0][6:8]
             if int(r_len, 16) > 32:
                 return False
@@ -209,11 +205,6 @@ def low_r_only(tx: Tx) -> bool:
             r_len = signature[6:8]
             if int(r_len, 16) > 32:
                 return False
-        elif input_type == "v0_p2wpkh":
-            r_len = tx["vin"][i]["witness"][0][6:8]
-            if int(r_len, 16) > 32:
-                return False
-
     return True
 
 

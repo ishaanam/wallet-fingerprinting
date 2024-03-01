@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Literal, Optional, Sequence, Union, cast
+from typing import Literal, Optional, Sequence, Union
 
 from tqdm.auto import tqdm
 
@@ -33,6 +33,14 @@ class OutputStructureType(Enum):
     MULTI = 2
     CHANGE_LAST = 3
     BIP69 = 4
+
+
+def is_p2wpkh_type(type: ScriptPubKeyType) -> bool:
+    return type in ("witness_v0_keyhash", "v0_p2wpkh")
+
+
+def is_p2pkh_type(type: ScriptPubKeyType) -> bool:
+    return type in ("pubkeyhash", "p2pkh")
 
 
 @dataclass
@@ -137,10 +145,8 @@ def compressed_public_keys_only(tx: Tx) -> bool:
     input_types = get_spending_types(tx)
     for i, input_type in enumerate(input_types):
         asm = tx["vin"][i]["scriptsig_asm"]
-        is_p2wpkh = input_type in ("witness_v0_keyhash", "v0_p2wpkh")
-        is_p2pkh = input_type in ("pubkeyhash", "p2pkh")
-        if (is_p2wpkh and tx["vin"][i]["witness"][1][1] == "4") or (
-            is_p2pkh and asm[asm.find(" ") + 2] == "4"
+        if (is_p2wpkh_type(input_type) and tx["vin"][i]["witness"][1][1] == "4") or (
+            is_p2pkh_type(input_type) and asm[asm.find(" ") + 2] == "4"
         ):
             return False
     return True
@@ -156,35 +162,23 @@ def get_input_order(tx: Tx) -> list[InputSortingType]:
     for tx_in in tx["vin"]:
         prevouts.append(f"{tx_in['txid']}:{tx_in['vout']}")
         amounts.append(tx_in["prevout"]["value"])
-
     if sorted(amounts) == amounts:
         sorting_types.append(InputSortingType.ASCENDING)
-    if sorted(amounts)[::-1] == amounts:
+    elif sorted(amounts)[::-1] == amounts:
         sorting_types.append(InputSortingType.DESCENDING)
-
     if sorted(prevouts) == prevouts:
         sorting_types.append(InputSortingType.BIP69)
 
-    # #TODO-1: refactor logic of prevout_conf_heights
-    prevout_conf_heights = dict[TxId, int | None](
-        {prevout: None for prevout in prevouts}
-    )
-
+    prevout_conf_heights = list[int]()
     for prevout in prevouts:
-        txid = prevout[0 : prevout.find(":")]
-        conf_height = get_confirmation_height(txid)
-        if conf_height != -1:
-            prevout_conf_heights[prevout] = conf_height
-        else:
-            del prevout_conf_heights[prevout]  # remove the None values
-    prevout_conf_heights = cast(dict[TxId, int], prevout_conf_heights)
-    ordered_conf_heights = list(prevout_conf_heights.values())
-    if ordered_conf_heights == sorted(ordered_conf_heights):
+        tx_id = prevout.split(":", 1)[0]
+        h = get_confirmation_height(tx_id)
+        prevout_conf_heights.append(h) if h != -1 else None
+    if prevout_conf_heights == sorted(prevout_conf_heights):
         sorting_types.append(InputSortingType.HISTORICAL)
-    # #TODO-1: refactor logic of prevout_conf_heights #END
 
     if len(sorting_types) == 0:
-        sorting_types.append(InputSortingType.UNKNOWN)
+        return [InputSortingType.UNKNOWN]
     return sorting_types
 
 
@@ -192,19 +186,17 @@ def get_input_order(tx: Tx) -> list[InputSortingType]:
 def low_r_only(tx: Tx) -> bool:
     input_types = get_spending_types(tx)
     for i, input_type in enumerate(input_types):
-        if input_type == "witness_v0_keyhash" or input_type == "v0_p2wpkh":
+        if is_p2wpkh_type(input_type):
             r_len = tx["vin"][i]["witness"][0][6:8]
-            if int(r_len, 16) > 32:
-                return False
         elif input_type == "pubkeyhash":
             r_len = tx["vin"][i]["scriptsig_asm"][6:8]
-            if int(r_len, 16) > 32:
-                return False
         elif input_type == "p2pkh":
             signature = tx["vin"][i]["scriptsig_asm"].split(" ")[1]
             r_len = signature[6:8]
-            if int(r_len, 16) > 32:
-                return False
+        else:
+            continue
+        if int(r_len, 16) > 32:
+            return False
     return True
 
 
@@ -377,7 +369,7 @@ def spends_unconfirmed(tx: Tx) -> bool:
     Returns:
     bool: True if any of the inputs are unconfirmed
 
-    TODO:
+    TODO-LATER:
     need historical mempool data for this to be completely accurate
     """
     raise NotImplementedError("spends_unconfirmed is not implemented")

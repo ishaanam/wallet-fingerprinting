@@ -17,6 +17,7 @@ TxHex: TypeAlias = HexStr  # transaction data encoded as a hexadecimal
 ValueType: TypeAlias = float
 # #TODO: check if ValueType is float, Decimal or int  # value in BTC
 
+
 # Unfinished type aliases #TODO
 ScriptPubKeyType: TypeAlias = (
     str

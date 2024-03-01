@@ -4,7 +4,7 @@ from typing import Literal, Optional, Sequence, Union
 
 from tqdm.auto import tqdm
 
-from fetch_txs import BitcoinClient, get_confirmation_height
+from fetch_txs import bitcoin_client, get_confirmation_height
 from type import (
     BlockId,
     FourInts,
@@ -602,7 +602,7 @@ def analyze_txs(transactions: Sequence[TxId]) -> WalletAnalyzeResult:
     wallets = WalletAnalyzeResult()
 
     for txid in tqdm(transactions):
-        wallet, _reasoning = detect_wallet(BitcoinClient.get_tx(txid))
+        wallet, _reasoning = detect_wallet(bitcoin_client.get_tx(txid))
         # #TODO-DESIGN: case==0 not needed? : already handled in detect_wallet
         if len(wallet) == 0:
             wallets[Wallets.OTHER].append(txid)
@@ -622,8 +622,8 @@ def analyze_block(
     num_of_txs: int = 0,  # analyze first num_of_txs transactions, or all if 0
 ) -> WalletAnalyzeResult:
     if block_hash == "":
-        block_hash = BitcoinClient.getbestblockhash()
-    transactions = BitcoinClient.getblocktxs(block_hash)
+        block_hash = bitcoin_client.getbestblockhash()
+    transactions = bitcoin_client.getblocktxs(block_hash)
 
     # exclude the coinbase transaction
     transactions = transactions[1:]

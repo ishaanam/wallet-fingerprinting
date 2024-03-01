@@ -1,42 +1,112 @@
-# Wallet Fingerprint Detector
+# Wallet Fingerprinting
 
-This repository contains tools that can be used to identify wallet fingerprints in transactions, 
-and then use those fingerprints to identify the wallet software that may have been used to create 
-that transaction.
+Welcome to the Wallet Fingerprinting repository! This tool is designed to analyze blockchain transactions and deduce potential wallet software fingerprints. By examining specific characteristics and patterns within transactions, it can suggest which wallet software might have been used to initiate them. This tool covers a range of well-known wallets, including Bitcoin Core, Electrum, Blue Wallet, Trezor, Ledger, Exodus, Trust Wallet, and Coinbase Wallet.
 
-Note: none of the results produced by this code should be considered certain. It is possible that
-a transaction was not created with one of the 8 wallets (Bitcoin Core, Electrum, Blue Wallet, Trezor, 
-Ledger, Exodus, Trust Wallet, Coinbase Wallet) that this software is fammiliar with. It is also possible 
-that one of the transactions provided exhibits the same exact fingerprints of one of these 8 wallets, but 
-in reality a different wallet was used to create that transaction.
+## Important Disclaimer
 
-The notebook can be used [here on Google Colab](https://colab.research.google.com/drive/1hWVe9U-r5np_QiGNtM6qaapXq8YwQ1FX?usp=sharing), or it can be run locally (see below). These functions use Bitcoin Core or the mempool.space REST API to fetch information about the transactions. If Bitcoin Core is not configured, mempool.space will be used by default. The Google Colab notebook will always use mempool.space. Please note that mempool.space is always used to fetch the confirmation height of a transaction.
+Please approach the results with a critical mind:
 
-## Setting Up Bitcoin Core
+- The identification provided by this tool is not absolute. It's based on patterns and characteristics that are common to transactions created by specific wallets. However, these patterns can overlap across different wallet software, or a wallet might update its transaction patterns over time.
+- There is always a possibility that a transaction identified as being created by one of the recognized wallets was, in fact, created by a different wallet software or a customized script.
 
-You can connect to your Bitcoin node by configuring the RPC settings in `rpc_config.ini`.
+## Usage Options
 
-## Setting Up Jupyter
+You can use the Wallet Fingerprinting in two main ways:
 
-In order to use the Jupyter notebook, you need to have Jupyter installed. This can be done by running
-the following:
+### Google Colab
 
+For ease of use and quick access, a pre-configured Google Colab notebook is available. This option is perfect for those who prefer an online environment without the need for local setup. Access the notebook [here](https://colab.research.google.com/drive/1hWVe9U-r5np_QiGNtM6qaapXq8YwQ1FX?usp=sharing). The Colab environment is configured to use mempool.space by default for fetching transaction data.
+
+### Local Setup
+
+#### Bitcoin Core Configuration
+
+If you have a Bitcoin Core node, you can leverage it for fetching transaction information by configuring the RPC settings in `rpc_config.ini`. This allows for direct interaction with your node, providing more control and privacy over the data retrieval process.
+
+1. Configure your Bitcoin node's RPC settings in `rpc_config.ini`.
+
+#### Jupyter Notebook
+
+For a more hands-on approach, you can run the Jupyter notebook locally. This requires having Jupyter installed on your machine.
+
+1. **Install Jupyter** (if not already installed):
+
+   ```sh
+   pip install jupyter
+   ```
+
+2. **Launch Jupyter Notebook**:
+
+   ```sh
+   jupyter notebook
+   ```
+
+This will start a local Jupyter server and open the notebook interface in your default web browser. From here, you can navigate to and open the provided notebook file to start analyzing transaction fingerprints.
+
+## Data Sources
+
+- **Bitcoin Core**: If configured, the tool will use your local Bitcoin Core node to fetch transaction data. This method is recommended for users with privacy concerns or those needing access to real-time blockchain data.
+- **Mempool.space API**: By default, and always in the Google Colab environment, the tool uses mempool.space to retrieve transaction information, including confirmation heights. This public API is a convenient way to access blockchain data without running a full node.
+
+## Getting Started
+
+To begin using the Wallet Fingerprinting, choose your preferred usage option above and follow the setup instructions provided. Whether you're exploring blockchain transactions for research, development, or curiosity, this tool offers valuable insights into the origins of blockchain transactions.
+
+## Develop and Contribute
+
+This guide will help you set up the virtual environment and install the
+necessary dependencies for the project.
+
+### Dev Prerequisites
+
+- Python >=3.9 installed on your machine
+
+### Dev Setup Instructions
+
+#### Create and Activate the Virtual Environment (optional)
+
+Navigate to the project's root directory. Create a virtual environment
+named `.venv` using Python 3.12:
+
+```bash
+python3.12 -m venv .venv
 ```
-$ pip install jupyter
+
+Activate the virtual environment:
+
+- On Unix or MacOS:
+
+  ```bash
+  source .venv/bin/activate
+  ```
+
+- On Windows (using Command Prompt):
+
+  ```bash
+  .\.venv\Scripts\activate.bat
+  ```
+
+#### Install Dependencies
+
+With the virtual environment activated, install the project dependencies
+using the `requirements.txt` file:
+
+```bash
+pip install -r requirements.txt
 ```
 
-The notebook can be run by doing the following:
+### Running the Project
 
-```
-$ jupyter notebook
-```
+With the virtual environment set up and dependencies installed, you're
+now ready to run the project according to the project's run
+instructions.
 
-## Functions
+### Troubleshooting
 
-`detect_wallet(txid)`: Given a transactions id, this function will attempt to determine 
-the wallet that created it, and will provide information about the transaction.
+If you encounter any issues during the setup, ensure you have the
+correct version of Python installed, and the virtual environment is
+activated before installing dependencies.
 
-`analyze_block(block_hash, num_of_txs)`: This function looks at the first specified number of transactions
-in the specified block and breaks down the number of transactions likely created by the eight wallets
-mentioned above. If `block_hash` isn't specified, by default the latest block is analyzed. If `num_of_txs`
-is not specified, then all of the transactions in the block are analyzed (please not that this takes time).
+## Known Issues
+
+- `spends_unconfirmed` needs historical mempool data for this to be completely accurate.

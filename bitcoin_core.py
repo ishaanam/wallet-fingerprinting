@@ -1,23 +1,42 @@
 import configparser
 import json
+import warnings
+from typing import cast, no_type_check
+
 import requests
+
+from type import (
+    BlockId,
+    Tx,
+    TxHex,
+    TxId,
+    TxInNormalized,
+    TxInNotNormalized,
+    TxNotNormalized,
+    TxOutNormalized,
+    TxOutNotNormalized,
+)
 
 Config = configparser.ConfigParser()
 Config.read("rpc_config.ini")
+header = {"content-type": "application/json", "cache-control": "no-cache"}
 
 URL = Config.get("RPC_INFO", "URL")
 RPCUSER = Config.get("RPC_INFO", "RPCUSER")
 RPCPASSWORD = Config.get("RPC_INFO", "RPCPASSWORD")
 
-class BitcoinCore:
-    def __init__(self):
-        pass
 
-    def get_prev_txout(self, tx_in):
-        prev_txout = self.decoderawtransaction(self.getrawtransaction(tx_in["txid"]))["vout"][tx_in["vout"]]
+class BitcoinCore:
+    @staticmethod
+    def get_prev_txout(tx_in: TxInNotNormalized) -> TxOutNotNormalized:
+        prev_txout = BitcoinCore.decoderawtransaction(
+            BitcoinCore.getrawtransaction(tx_in["txid"])
+        )["vout"][tx_in["vout"]]
         return prev_txout
 
-    def normalize_tx(self, tx):
+    @no_type_check
+    @staticmethod
+    def _untyped_normalize_tx(tx: TxNotNormalized) -> Tx:
         for tx_in in tx["vin"]:
             tx_in["scriptsig_asm"] = tx_in["scriptSig"]["asm"]
             tx_in["scriptsig"] = tx_in["scriptSig"]["hex"]
@@ -31,7 +50,51 @@ class BitcoinCore:
         tx["vout"] = [self.normalize_txout(tx_out) for tx_out in tx["vout"]]
         return tx
 
-    def normalize_txout(self, txout):
+    @staticmethod
+    def _typed_normalize_tx(tx: TxNotNormalized) -> Tx:
+        # #fix: copy all keys from TxNotNormalized to Tx, check if there are any
+        # keys left in TxNotNormalized
+        new_vin = list[TxInNormalized]()
+        for tx_in in tx["vin"]:
+            tx_in = cast(
+                TxInNotNormalized, tx_in
+            )  # pyright: ignore[reportUnnecessaryCast]
+
+            new_in: TxInNormalized = {
+                "txid": tx_in["txid"],
+                "locktime": tx_in["locktime"],
+                # locktime # not sure if needed
+                "vout": tx_in["vout"],  # should not be read # type: ignore
+                # #fix: `vout` in the old impl was not normalized like this
+                "scriptsig_asm": tx_in["scriptSig"]["asm"],
+                "scriptsig": tx_in["scriptSig"]["hex"],
+                "witness": tx_in.get("txinwitness", []),
+                "prevout": BitcoinCore.normalize_txout(
+                    BitcoinCore.get_prev_txout(tx_in)
+                ),
+                "sequence": tx_in["sequence"],
+            }
+            new_vin.append(new_in)
+        new_vout = [BitcoinCore.normalize_txout(out) for out in tx["vout"]]
+        return {
+            "vin": new_vin,
+            "vout": new_vout,
+            "locktime": tx["locktime"],
+            "version": tx["version"],
+            "txid": tx["txid"],
+        }
+
+    @staticmethod
+    def normalize_tx(tx: TxNotNormalized) -> Tx:
+        try:
+            return BitcoinCore._typed_normalize_tx(tx)
+        except Exception as e:  # #TODO: remove
+            warnings.warn(f"{e}")
+            return BitcoinCore._untyped_normalize_tx(tx)  # type: ignore
+
+    @no_type_check
+    @staticmethod
+    def _untyped_normalize_txout(txout):
         txout["scriptpubkey"] = txout["scriptPubKey"]["hex"]
         try:
             txout["scriptpubkey_address"] = txout["scriptPubKey"]["address"]
@@ -41,40 +104,66 @@ class BitcoinCore:
         del txout["scriptPubKey"]
         return txout
 
-    def get_tx(self, txid):
-        return self.normalize_tx(self.decoderawtransaction(self.getrawtransaction(txid)))
+    @staticmethod
+    def normalize_txout(txout: TxOutNotNormalized) -> TxOutNormalized:
+        try:
+            return {
+                "scriptpubkey": txout["scriptPubKey"]["hex"],
+                "scriptpubkey_type": txout["scriptPubKey"]["type"],
+                "scriptpubkey_address": txout["scriptPubKey"].get("address", None),
+                "value": txout["value"],
+            }
+        except Exception as e:  # #TODO: remove
+            warnings.warn(f"{e}")
+            return BitcoinCore._untyped_normalize_txout(txout)  # type: ignore
 
-    def getbestblockhash(self):
+    @staticmethod
+    def get_tx(txid: TxId) -> Tx:
+        return BitcoinCore.normalize_tx(
+            BitcoinCore.decoderawtransaction(BitcoinCore.getrawtransaction(txid))
+        )
+
+    @staticmethod
+    def getbestblockhash() -> BlockId:
         payload = json.dumps({"method": "getbestblockhash", "params": []})
-        headers = {'content-type': "application/json", 'cache-control': "no-cache"}
-        response = requests.request("POST", URL, data=payload, headers=headers, auth=(RPCUSER, RPCPASSWORD))
+        response = requests.request(
+            "POST", URL, data=payload, headers=header, auth=(RPCUSER, RPCPASSWORD)
+        )
 
         return json.loads(response.text)["result"]
 
-    def getblocktxs(self, block_hash):
+    @staticmethod
+    def getblocktxs(block_hash: BlockId) -> list[TxId]:
         payload = json.dumps({"method": "getblock", "params": [block_hash]})
-        headers = {'content-type': "application/json", 'cache-control': "no-cache"}
-        response = requests.request("POST", URL, data=payload, headers=headers, auth=(RPCUSER, RPCPASSWORD))
+        response = requests.request(
+            "POST", URL, data=payload, headers=header, auth=(RPCUSER, RPCPASSWORD)
+        )
 
         return json.loads(response.text)["result"]["tx"]
 
-    def getrawmempool(self):
+    @staticmethod
+    def getrawmempool():
         payload = json.dumps({"method": "getrawmempool", "params": []})
-        headers = {'content-type': "application/json", 'cache-control': "no-cache"}
-        response = requests.request("POST", URL, data=payload, headers=headers, auth=(RPCUSER, RPCPASSWORD))
+        response = requests.request(
+            "POST", URL, data=payload, headers=header, auth=(RPCUSER, RPCPASSWORD)
+        )
 
         return json.loads(response.text)["result"]
 
-    def getrawtransaction(self, txid):
+    @staticmethod
+    def getrawtransaction(txid: TxId):
         payload = json.dumps({"method": "getrawtransaction", "params": [txid]})
-        headers = {'content-type': "application/json", 'cache-control': "no-cache"}
-        response = requests.request("POST", URL, data=payload, headers=headers, auth=(RPCUSER, RPCPASSWORD))
+        response = requests.request(
+            "POST", URL, data=payload, headers=header, auth=(RPCUSER, RPCPASSWORD)
+        )
 
         return json.loads(response.text)["result"]
 
-    def decoderawtransaction(self, tx_hex):
+    @staticmethod
+    def decoderawtransaction(tx_hex: TxHex):
         payload = json.dumps({"method": "decoderawtransaction", "params": [tx_hex]})
-        headers = {'content-type': "application/json", 'cache-control': "no-cache"}
-        response = requests.request("POST", URL, data=payload, headers=headers, auth=(RPCUSER, RPCPASSWORD))
+        response = requests.request(
+            "POST", URL, data=payload, headers=header, auth=(RPCUSER, RPCPASSWORD)
+        )
 
         return json.loads(response.text)["result"]

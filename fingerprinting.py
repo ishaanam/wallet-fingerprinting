@@ -376,6 +376,13 @@ def spends_unconfirmed(tx: Tx) -> bool:
 
 
 def detect_wallet(tx: Tx) -> tuple[set[Wallets], list[str]]:
+    """
+    Determine the wallet that created given a transactions id, and provide
+    information about the transaction.
+
+    Args:
+    tx (Tx): the transaction to analyze
+    """
     possible_wallets: set[Wallets] = {
         Wallets.BITCOIN_CORE,
         Wallets.ELECTRUM,
@@ -619,16 +626,31 @@ def analyze_txs(transactions: Sequence[TxId]) -> WalletAnalyzeResult:
 
 def analyze_block(
     block_hash: BlockId = "",
-    num_of_txs: int = 0,  # analyze first num_of_txs transactions, or all if 0
+    first_n_txs: int = 0,  # analyze first first_n_txs transactions, or all if 0
 ) -> WalletAnalyzeResult:
+    """
+    Analyse the first first_n_txs number of transactions in the given block and
+    returns the transaction IDs created by the wallets in a list as the value
+    of the returned dictionary.
+    Empty ``block_hash`` leads to analyze the latest block.
+    Empty ``first_n_txs`` leads to analyze all transactions in the block.
+
+    Args:
+    block_hash (BlockId): the block to analyze
+    first_n_txs (int): the number of transactions to analyze
+
+    Returns:
+    WalletAnalyzeResult: a dictionary with Wallet as keys and list of
+    transactions as values
+    """
     if block_hash == "":
         block_hash = bitcoin_client.getbestblockhash()
     transactions = bitcoin_client.getblocktxs(block_hash)
 
     # exclude the coinbase transaction
     transactions = transactions[1:]
-    if num_of_txs != 0:
-        transactions = transactions[:num_of_txs]
+    if first_n_txs != 0:
+        transactions = transactions[:first_n_txs]
 
     txs_wallets_result = analyze_txs(transactions)
     return txs_wallets_result
@@ -636,4 +658,4 @@ def analyze_block(
 
 if __name__ == "__main__":
     block_hash = "00000000000000000004bcc50688d02a74d778201a47cc704a877d1442a58431"
-    print(analyze_block(block_hash=block_hash, num_of_txs=100))
+    print(analyze_block(block_hash=block_hash, first_n_txs=100))

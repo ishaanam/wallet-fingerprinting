@@ -6,13 +6,14 @@ from bitcoin_core import BitcoinCore
 from mempool_space import MempoolSpace
 from type import TxId
 
-module = BitcoinCore()
+BitcoinClient = BitcoinCore()
 
+# should have a protocol for this
 try:
-    module.getbestblockhash()
+    BitcoinClient.getbestblockhash()
     print("Using Bitcoin Core")
 except (requests.exceptions.ConnectionError, requests.exceptions.InvalidSchema):
-    module = MempoolSpace()
+    BitcoinClient = MempoolSpace()
     print("Using mempool.space")
 
 

@@ -106,3 +106,7 @@ instructions.
 If you encounter any issues during the setup, ensure you have the
 correct version of Python installed, and the virtual environment is
 activated before installing dependencies.
+
+## Known Issues
+
+- `spends_unconfirmed` needs historical mempool data for this to be completely accurate.
